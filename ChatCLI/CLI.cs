@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace ChatCLI
 {
@@ -36,6 +35,8 @@ namespace ChatCLI
 
         private bool _updatingBuffer = false;
         private bool _scheduleUpdate = false;
+
+        private int _cursorOffset = 0; //pointer for moving left/right in input string
 
         public string CommandList
         {
@@ -174,6 +175,7 @@ namespace ChatCLI
             //display input 'box'
             Console.SetCursorPosition(0, Console.BufferHeight - 1);
             Console.Write($"{_prefix} {_input}");
+            Console.CursorLeft += _cursorOffset;
 
             //if some updates was scheduled update buffer
             _updatingBuffer = false;
@@ -196,12 +198,17 @@ namespace ChatCLI
                     case ConsoleKey.Enter: //process input
                         string i = _input;
                         _input = "";
+                        _cursorOffset = 0;
                         _handleInput(i);
                         historyCursor = 0;
+                        
                         break;
 
                     case ConsoleKey.Backspace: //delete characters from input before cursor position
-                        if(!string.IsNullOrEmpty(_input)) _input = _input.Substring(0, _input.Length - 1);
+                        if (!string.IsNullOrEmpty(_input) && Console.CursorLeft > _prefix.Length)
+                        {
+                            _input = _input.Remove(_input.Length + _cursorOffset - 1, 1);
+                        }
                         _updateConsoleBuffer();
                         break;
 
@@ -211,6 +218,7 @@ namespace ChatCLI
                             if (historyCursor < _inputHistory.Count) historyCursor++;
                             _input = _inputHistory[_inputHistory.Count - historyCursor];
                         }
+                        _cursorOffset = 0;
                         _updateConsoleBuffer();
                         break;
 
@@ -224,11 +232,28 @@ namespace ChatCLI
                         {
                             _input = _inputHistory[_inputHistory.Count - historyCursor];
                         }
+                        _cursorOffset = 0;
+                        _updateConsoleBuffer();
+                        break;
+
+                    case ConsoleKey.LeftArrow: //move cursor to the left
+                        if(_cursorOffset > -_input.Length)
+                        {
+                            _cursorOffset--;
+                        }
+                        _updateConsoleBuffer();
+                        break;
+
+                    case ConsoleKey.RightArrow: //move cursor to the right
+                        if (_cursorOffset < 0)
+                        {
+                            _cursorOffset++;
+                        }
                         _updateConsoleBuffer();
                         break;
 
                     default: //append character to input string
-                        _input += keyInfo.KeyChar;
+                        _input = _input.Insert(_input.Length + _cursorOffset, $"{keyInfo.KeyChar}");
                         _updateConsoleBuffer();
                         break;
                 }
