@@ -20,15 +20,6 @@ namespace ChatCLI
 
     public class CLI
     {
-        private List<(LogType, string, string)> _logsHistory;
-        private List<string> _inputHistory;
-        private Dictionary<string, Action<string[], CLI>> _commands; //command name - command action
-        private Dictionary<string, string> _commandDescriptions; //command name - command description
-        private Dictionary<string, string> _commandHelp; //command name - command help
-
-        private string _input;
-        private int _inputHistoryMaxLength;
-
         private string _name;
         private string _prefix;
         private bool _isRunning;
@@ -36,34 +27,13 @@ namespace ChatCLI
         private bool _updatingBuffer = false;
         private bool _scheduleUpdate = false;
 
-        private int _cursorOffset = 0; //pointer for moving left/right in input string
-
-        public string CommandList
-        {
-            get
-            {
-                int l = _commands.Keys.Max(cmd => cmd.Length); //Get length of the longest command
-                return _commandDescriptions.Aggregate("All available commands:\n", (result, next) => result += $"{next.Key.PadRight(l, ' ')}\t{next.Value}\n"); //Put together all commands with their description
-            }
-        }
-
         public string WelcomeMessage;
-        public event Action<string> InputHandler; //Action that specifies what to do when input doesn't start with '/'
 
         public CLI(string name = "Chat CLI", string prefix = ">")
         {
-            _logsHistory = new List<(LogType, string, string)>();
-            _inputHistory = new List<string>();
-            _commands = new Dictionary<string, Action<string[], CLI>>();
-            _commandDescriptions = new Dictionary<string, string>();
-            _commandHelp = new Dictionary<string, string>();
-
-            _input = "";
             _name = name;
             _prefix = prefix;
             _isRunning = false;
-
-            _inputHistoryMaxLength = 20;
         }
 
         public virtual void Init()
@@ -88,48 +58,10 @@ namespace ChatCLI
             _isRunning = false;
         }
 
-        public void Log(string message, bool timeStamp = true)
-        {
-            Log(LogType.Log, message, timeStamp);
-        }
-
-        public void Log(LogType logType, string message, bool timeStamp = true)
-        {
-            if (_logsHistory.Count >= Console.BufferHeight - 2) //handles resizing window
-                _logsHistory.RemoveRange(0, _logsHistory.Count - Console.BufferHeight + 3); //remove excess logs
-
-            string timeStampString = timeStamp ? $"[{DateTime.Now.ToLongTimeString()}] " : ""; //if timestamp is required create one
-
-            //add new log to log history so it can be displayed
-            _logsHistory.Add((logType, timeStampString, message));
-            _updateConsoleBuffer();
-        }
-
         public void ClearLogWindow()
         {
             _logsHistory.Clear();
             _updateConsoleBuffer();
-        }
-
-        public void AddCommand(string commandName, string commandDescription, Action<string[], CLI> action, string commandHelp = "There is no help page for this command!")
-        {
-            if (_commands.ContainsKey(commandName)) throw new Exception($"Command: {commandName} already exists!");
-            
-            _commands[commandName] = action;
-            _commandDescriptions.Add(commandName, commandDescription);
-            _commandHelp.Add(commandName, commandHelp);
-        }
-
-        public string GetHelpPage(string command)
-        {
-            if (_commandHelp.ContainsKey(command))
-            {
-                return $"help page for {command} command:\n{_commandHelp[command]}";
-            }
-            else
-            {
-                return null;
-            }
         }
 
         private void _updateConsoleBuffer()
@@ -188,75 +120,9 @@ namespace ChatCLI
 
         private void _cliUpdateLoop()
         {
-            int historyCursor = 0; //pointer for going back and forth in input history
             while (_isRunning)
             {
-                ConsoleKeyInfo keyInfo = Console.ReadKey(false); //register pressed key and DON'T display it in console
-
-                switch (keyInfo.Key) //handle different keys
-                {
-                    case ConsoleKey.Enter: //process input
-                        string i = _input;
-                        _input = "";
-                        _cursorOffset = 0;
-                        _handleInput(i);
-                        historyCursor = 0;
-                        
-                        break;
-
-                    case ConsoleKey.Backspace: //delete characters from input before cursor position
-                        if (!string.IsNullOrEmpty(_input) && Console.CursorLeft > _prefix.Length)
-                        {
-                            _input = _input.Remove(_input.Length + _cursorOffset - 1, 1);
-                        }
-                        _updateConsoleBuffer();
-                        break;
-
-                    case ConsoleKey.UpArrow: //go back in input history
-                        if(_inputHistory.Count > 0)
-                        {
-                            if (historyCursor < _inputHistory.Count) historyCursor++;
-                            _input = _inputHistory[_inputHistory.Count - historyCursor];
-                        }
-                        _cursorOffset = 0;
-                        _updateConsoleBuffer();
-                        break;
-
-                    case ConsoleKey.DownArrow: //go forward in input history
-                        if (historyCursor > 0) historyCursor--;
-                        if(historyCursor == 0)
-                        {
-                            _input = "";
-                        }
-                        else
-                        {
-                            _input = _inputHistory[_inputHistory.Count - historyCursor];
-                        }
-                        _cursorOffset = 0;
-                        _updateConsoleBuffer();
-                        break;
-
-                    case ConsoleKey.LeftArrow: //move cursor to the left
-                        if(_cursorOffset > -_input.Length)
-                        {
-                            _cursorOffset--;
-                        }
-                        _updateConsoleBuffer();
-                        break;
-
-                    case ConsoleKey.RightArrow: //move cursor to the right
-                        if (_cursorOffset < 0)
-                        {
-                            _cursorOffset++;
-                        }
-                        _updateConsoleBuffer();
-                        break;
-
-                    default: //append character to input string
-                        _input = _input.Insert(_input.Length + _cursorOffset, $"{keyInfo.KeyChar}");
-                        _updateConsoleBuffer();
-                        break;
-                }
+                
             }
         }
 

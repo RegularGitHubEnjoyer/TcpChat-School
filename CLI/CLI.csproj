@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{809B0B99-E0BF-4A19-844B-99CCFB6CBC45}</ProjectGuid>
+    <ProjectGuid>{EEC64F3D-D147-47A8-81A0-E8EB8117FDE0}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>TcpServer</RootNamespace>
-    <AssemblyName>TcpServer</AssemblyName>
+    <RootNamespace>CLI</RootNamespace>
+    <AssemblyName>CLI</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -43,12 +43,26 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChatServer.cs" />
+    <Compile Include="CLI.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommandManager\CommandManager.csproj">
+      <Project>{79a06d0d-c505-410e-9776-5464ff2efec5}</Project>
+      <Name>CommandManager</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InputHandler\InputHandler.csproj">
+      <Project>{b6620e52-b742-4150-9cde-2dc643f82471}</Project>
+      <Name>InputHandler</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Logger\Logger.csproj">
+      <Project>{4eb81447-5e11-4bb1-ad5a-047079310cc2}</Project>
+      <Name>Logger</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

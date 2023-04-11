@@ -50,11 +50,5 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ChatCLI\ChatCLI.csproj">
-      <Project>{be2f55d8-50c9-415d-8839-9f04f819391b}</Project>
-      <Name>ChatCLI</Name>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

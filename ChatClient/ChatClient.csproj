@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{809B0B99-E0BF-4A19-844B-99CCFB6CBC45}</ProjectGuid>
+    <ProjectGuid>{78511F2A-C4AC-4E1F-AE70-EA5E20FBC67C}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>TcpServer</RootNamespace>
-    <AssemblyName>TcpServer</AssemblyName>
+    <RootNamespace>ChatClient</RootNamespace>
+    <AssemblyName>ChatClient</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -43,12 +43,34 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChatServer.cs" />
+    <Compile Include="ChatClient.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CLI\CLI.csproj">
+      <Project>{eec64f3d-d147-47a8-81a0-e8eb8117fde0}</Project>
+      <Name>CLI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CommandManager\CommandManager.csproj">
+      <Project>{79a06d0d-c505-410e-9776-5464ff2efec5}</Project>
+      <Name>CommandManager</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ConnectionHandler\ConnectionHandler.csproj">
+      <Project>{1abb4694-0311-405c-a627-6380159915b9}</Project>
+      <Name>ConnectionHandler</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Logger\Logger.csproj">
+      <Project>{4eb81447-5e11-4bb1-ad5a-047079310cc2}</Project>
+      <Name>Logger</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MessageHandler\MessageHandler.csproj">
+      <Project>{44d6e73f-786b-47b5-8446-5002ead7990e}</Project>
+      <Name>MessageHandler</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
