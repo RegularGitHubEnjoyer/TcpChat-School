@@ -7,6 +7,8 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net.Sockets;
+using MessageHandler;
 
 namespace ChatServer
 {
@@ -35,13 +37,32 @@ namespace ChatServer
 
             Command startCmd = new Command("start", cmdArgs =>
             {
+                logger.LogInfo("Starting server...");
+
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 11000);
                 server.Start(endPoint);
+
+                if (server.IsListening())
+                {
+                    logger.LogSuccess("Server started succesfully!");
+
+                    Thread connectionListenThread = new Thread(HandleNewConnections);
+                    connectionListenThread.Start();
+
+                    Thread clientConnectionThread = new Thread(HandleCurrentConnections);
+                    clientConnectionThread.Start();
+                }
+                else
+                {
+                    logger.LogWarning("Unable to start server!");
+                }
             });
 
             Command stopCmd = new Command("stop", cmdArgs =>
             {
+                logger.LogInfo("Stopping server...");
                 server.Stop();
+                logger.LogSuccess("Server stopped succesfully!");
             });
 
             Command quitCmd = new Command("quit", cmdArgs =>
@@ -78,6 +99,78 @@ namespace ChatServer
             else
             {
                 logger.LogWarning($"Unknown command: '{commandParts[0]}'");
+            }
+        }
+
+        static void HandleNewConnections()
+        {
+            while (server.IsListening())
+            {
+                try
+                {
+                    server.AcceptConnectionIfPending();
+                }
+                catch (ObjectDisposedException e)
+                {
+                    if (server.IsListening())
+                    {
+                        server.Stop();
+                        break;
+                    }
+                }
+            }
+        }
+
+        static void HandleCurrentConnections()
+        {
+            HandleValidations();
+            HandleReceivingMessages();
+            HandleSendingMessages();
+        }
+
+        static void HandleValidations()
+        {
+            while (server.HasPendingValidations())
+            {
+                logger.LogInfo("Connecting client...");
+                bool accepted = server.AcceptNextIfValid();
+
+                if (accepted) logger.LogSuccess("Succesfully connected new client!");
+                else logger.LogInfo("Client connection rejected!");
+            }
+        }
+
+        static void HandleReceivingMessages()
+        {
+            server.CollectMessagesFromConnectedClients();
+        }
+
+        static void HandleSendingMessages()
+        {
+            while (server.HasPendingMessages())
+            {
+                Message pendingMessage = server.GetNextPendingMessage();
+
+                switch (pendingMessage.messageHeader)
+                {
+                    case MessageHeader.Request:
+                        HandleRequest(pendingMessage);
+                        break;
+                    case MessageHeader.Public_Message:
+                        server.BroadcastMessage(pendingMessage);
+                        break;
+                    case MessageHeader.Private_Message:
+                        server.SendPrivateMessage(pendingMessage);
+                        break;
+                }
+            }
+        }
+
+        static void HandleRequest(Message request)
+        {
+            if (request.messageArg.Equals("disconnect"))
+            {
+                server.DisconnectClientIfExist(request.messageBody);
             }
         }
     }

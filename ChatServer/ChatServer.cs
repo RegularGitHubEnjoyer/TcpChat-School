@@ -32,9 +32,6 @@ namespace ChatServer
         {
             _initializeSocket(endPoint);
 
-            Thread connectionListenThread = new Thread(_handleListenForNewConnection);
-            connectionListenThread.Start();
-
             Thread clientConnectionThread = new Thread(_handleConnections);
             clientConnectionThread.Start();
         }
@@ -50,52 +47,102 @@ namespace ChatServer
             }
         }
 
+        public bool IsListening()
+        {
+            return _isListening;
+        }
+
+        public void AcceptConnectionIfPending()
+        {
+            if (_listener.Poll(100, SelectMode.SelectRead))
+            {
+                Socket connection = _listener.Accept();
+                _validationQueue.Enqueue(connection);
+            }
+        }
+
+        public bool HasPendingValidations()
+        {
+            return _validationQueue.Count > 0;
+        }
+
+        public bool AcceptNextIfValid()
+        {
+            Socket connection = _validationQueue.Dequeue();
+            string username = _requestUsername(connection);
+
+            if (_requestedUsernameIsValid(username))
+            {
+                _acceptClientWithUsername(connection, username);
+                return true;
+            }
+            else
+            {
+                connection.Close(5);
+                return false;
+            }
+        }
+
+        public void CollectMessagesFromConnectedClients()
+        {
+            foreach (string username in _connectedClients.Keys)
+            {
+                if (_connectedClients[username].Poll(100, SelectMode.SelectRead))
+                {
+                    if (_connectedClients[username].Available > 0)
+                    {
+                        Message receivedMessage = MessagingHandler.ReceiveMessage(_connectedClients[username]);
+                        _messageQueue.Enqueue(receivedMessage);
+                    }
+                    else
+                    {
+                        _disconnectClient(username);
+                    }
+                }
+            }
+        }
+
+        public bool HasPendingMessages()
+        {
+            return _messageQueue.Count > 0;
+        }
+
+        public Message GetNextPendingMessage()
+        {
+            return _messageQueue.Dequeue();
+        }
+
+        public void DisconnectClientIfExist(string username)
+        {
+            if (_connectedClients.ContainsKey(username)) _disconnectClient(username);
+        }
+
+        public void BroadcastMessage(Message message)
+        {
+            foreach (string username in _connectedClients.Keys)
+            {
+                if (username == message.messageArg) continue;
+
+                MessagingHandler.SendMessage(message, _connectedClients[username]);
+            }
+        }
+
+        public void SendPrivateMessage(Message message)
+        {
+            string[] usernames = message.messageArg.Split(' ');
+
+            if (usernames.Length > 2 && _connectedClients.ContainsKey(usernames[1]))
+            {
+                MessagingHandler.SendMessage(message, _connectedClients[usernames[1]]);
+            }
+        }
+
         private void _initializeSocket(IPEndPoint endPoint)
         {
             _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listener.Bind(endPoint);
             _listener.Listen(10);
             _isListening = true;
-        }
-
-        private void _handleListenForNewConnection()
-        {
-            while (_isListening)
-            {
-                if(_listener.Poll(100, SelectMode.SelectRead))
-                {
-                    Socket connection = _listener.Accept();
-                    _validationQueue.Enqueue(connection);
-                }
-            }
-        }
-
-        private void _handleConnections()
-        {
-            while (_isListening)
-            {
-                _acceptValidConnections();
-                _receiveMessages();
-                _handleMessages();
-            }
-        }
-
-        private void _acceptValidConnections()
-        {
-            while(_validationQueue.Count > 0)
-            {
-                Socket connection = _validationQueue.Dequeue();
-                string username = _requestUsername(connection);
-
-                if (_requestedUsernameIsValid(username))
-                {
-                    _acceptClientWithUsername(connection, username);
-                }
-                else
-                {
-                    connection.Close(5);
-                }
-            }
         }
 
         private string _requestUsername(Socket connection)
@@ -140,78 +187,10 @@ namespace ChatServer
             //Send connection status message
         }
 
-        private void _receiveMessages()
-        {
-            foreach (string username in _connectedClients.Keys)
-            {
-                if (_connectedClients[username].Poll(100, SelectMode.SelectRead))
-                {
-                    if (_connectedClients[username].Available > 0)
-                    {
-                        Message receivedMessage = MessagingHandler.ReceiveMessage(_connectedClients[username]);
-                        _messageQueue.Enqueue(receivedMessage);
-                    }
-                    else
-                    {
-                        _disconnectClient(username);
-                    }
-                }
-            }
-        }
-
         private void _disconnectClient(string username)
         {
             _connectedClients[username].Close(5);
             _connectedClients.Remove(username);
-        }
-
-        private void _handleMessages()
-        {
-            while(_messageQueue.Count > 0)
-            {
-                Message message = _messageQueue.Dequeue();
-
-                switch (message.messageHeader)
-                {
-                    case MessageHeader.Request:
-                        _handleRequest(message);
-                        break;
-                    case MessageHeader.Public_Message:
-                        _broadcastMessage(message);
-                        break;
-                    case MessageHeader.Private_Message:
-                        _sendPrivateMessage(message);
-                        break;
-                }
-            }
-        }
-
-        private void _handleRequest(Message request)
-        {
-            if (request.messageArg.Equals("disconnect"))
-            {
-                _disconnectClient(request.messageBody);
-            }
-        }
-
-        private void _broadcastMessage(Message message)
-        {
-            foreach (string username in _connectedClients.Keys)
-            {
-                if (username == message.messageArg) continue;
-
-                MessagingHandler.SendMessage(message, _connectedClients[username]);
-            }
-        }
-
-        private void _sendPrivateMessage(Message message)
-        {
-            string[] usernames = message.messageArg.Split(' ');
-
-            if (usernames.Length > 2 && _connectedClients.ContainsKey(usernames[1]))
-            {
-                MessagingHandler.SendMessage(message, _connectedClients[usernames[1]]);
-            }
         }
     }
 }
