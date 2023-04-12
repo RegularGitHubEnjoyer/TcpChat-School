@@ -8,17 +8,20 @@ namespace InputHandler
 {
     public class InputHandler
     {
-        private List<string> _inputHistory;
         private string _inputString;
-        private int _historyCursor;
         private int _inputStringCursor;
+
+        private Queue<string> _previousInputEntries;
+        private Queue<string> _redoInputEntries;
 
         public event Action<string> InputProcessor;
 
         public InputHandler()
         {
-            _inputHistory = new List<string>();
-            _inputString = "";
+            _previousInputEntries = new Queue<string>();
+            _redoInputEntries = new Queue<string>();
+
+            _setInputString("");
         }
 
         public string GetCurrentInputString()
@@ -33,21 +36,26 @@ namespace InputHandler
             switch (keyInfo.Key)
             {
                 case ConsoleKey.Enter:
-                    _inputHistory.Add(_inputString);
-                    _resetInputData();
-                    _processInput();
+                    string input = _inputString;
+                    _previousInputEntries.Enqueue(_inputString);
+                    _setInputString("");
+                    InputProcessor?.Invoke(input);
+                    _setInputStringCursor(0);
                     break;
 
                 case ConsoleKey.Backspace:
                     _deleteCharacterBeforeCursorPosition();
+                    _moveCursorLeft();
                     break;
 
                 case ConsoleKey.UpArrow:
                     _setInputStringToPreviousInHistory();
+                    _setInputStringCursor(_inputString.Length);
                     break;
 
                 case ConsoleKey.DownArrow:
                     _setInputStringToNextInHistoryOrEmpty();
+                    _setInputStringCursor(_inputString.Length);
                     break;
 
                 case ConsoleKey.LeftArrow:
@@ -60,35 +68,19 @@ namespace InputHandler
 
                 default:
                     _appendCharacterToInputString(keyInfo.KeyChar);
+                    _moveCursorRight();
                     break;
             }
         }
 
-        private void _processInput()
+        private void _setInputString(string value)
         {
-            InputProcessor?.Invoke(_inputHistory.Last());
+            _inputString = value;
         }
 
-        private void _resetInputData()
+        private void _setInputStringCursor(int value)
         {
-            _resetInputString();
-            _resetHistoryCursor();
-            _resetInputStringCursor();
-        }
-
-        private void _resetHistoryCursor()
-        {
-            _historyCursor = 0;
-        }
-
-        private void _resetInputStringCursor()
-        {
-            _inputStringCursor = 0;
-        }
-
-        private void _resetInputString()
-        {
-            _inputString = "";
+            _inputStringCursor = value;
         }
 
         private void _deleteCharacterBeforeCursorPosition()
@@ -101,31 +93,23 @@ namespace InputHandler
 
         private void _setInputStringToPreviousInHistory()
         {
-            if (_inputHistory.Count > 0)
+            if(_previousInputEntries.Count > 0)
             {
-                if (_historyCursor < _inputHistory.Count) _historyCursor++;
-                _inputString = _inputHistory[_inputHistory.Count - _historyCursor];
-            }
-            _resetInputStringCursor();
+                _redoInputEntries.Enqueue(_inputString);
+                _setInputString(_previousInputEntries.Dequeue());
+            }            
         }
 
         private void _setInputStringToNextInHistoryOrEmpty()
         {
-            if (_historyCursor > 0) _historyCursor--;
-            if (_historyCursor == 0)
-            {
-                _inputString = "";
-            }
-            else
-            {
-                _inputString = _inputHistory[_inputHistory.Count - _historyCursor];
-            }
-            _resetInputStringCursor();
+            _previousInputEntries.Enqueue(_inputString);
+            if (_redoInputEntries.Count > 0) _setInputString(_redoInputEntries.Dequeue());
+            else _setInputString("");
         }
 
         private void _moveCursorLeft()
         {
-            if (_inputStringCursor > -_inputString.Length)
+            if (_inputStringCursor > 0)
             {
                 _inputStringCursor--;
             }
@@ -133,7 +117,7 @@ namespace InputHandler
 
         private void _moveCursorRight()
         {
-            if (_inputStringCursor < 0)
+            if (_inputStringCursor < _inputString.Length)
             {
                 _inputStringCursor++;
             }
@@ -141,7 +125,7 @@ namespace InputHandler
 
         private void _appendCharacterToInputString(char newChar)
         {
-            _inputString = _inputString.Insert(_inputString.Length + _inputStringCursor, $"{newChar}");
+            _inputString = _inputString.Insert(_inputStringCursor, $"{newChar}");
         }
     }
 }

@@ -4,12 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CommandManager
+namespace CLI
 {
-    internal class Program
+    public interface CLIPresenter
     {
-        static void Main(string[] args)
-        {
-        }
+        List<CLIViewItem> GetViewData();
     }
 }

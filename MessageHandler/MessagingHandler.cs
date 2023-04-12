@@ -9,33 +9,21 @@ namespace MessageHandler
 {
     public static class MessagingHandler
     {
-        public static void SendMessage(Message message, Socket receiver)
+        private const int BUFFER_SIZE = 3 * 1024;
+
+        public static async Task SendMessageAsync(Message message, Socket receiver)
         {
-            try
-            {
-                string messageString = message.ToString();
-                byte[] buffer = Encoding.UTF8.GetBytes(messageString);
-                receiver.Send(buffer);
-            }
-            catch (SocketException e)
-            {
-                throw new Exception("Unable to send message!: " + e.Message);
-            }
+            string messageString = message.ToString();
+            ArraySegment<byte> buffer = new ArraySegment<byte>(Encoding.UTF8.GetBytes(messageString));
+            await receiver.SendAsync(buffer, SocketFlags.None);
         }
 
-        public static Message ReceiveMessage(Socket sender)
+        public static async Task<Message> ReceiveMessageAsync(Socket sender)
         {
-            try
-            {
-                byte[] buffer = new byte[3 * 1024];
-                int bytesReceived = sender.Receive(buffer);
-                string messageString = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-                return Message.Parse(messageString);
-            }
-            catch(SocketException e)
-            {
-                throw new Exception("Unable to receive message!: " + e.Message);
-            }
+            ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[BUFFER_SIZE]);
+            int bytesReceived = await sender.ReceiveAsync(buffer, SocketFlags.None);
+            string messageString = Encoding.UTF8.GetString(buffer.ToArray(), 0, bytesReceived);
+            return Message.Parse(messageString);
         }
     }
 }

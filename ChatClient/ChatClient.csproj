@@ -43,7 +43,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChatClient.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -59,9 +58,9 @@
       <Project>{79a06d0d-c505-410e-9776-5464ff2efec5}</Project>
       <Name>CommandManager</Name>
     </ProjectReference>
-    <ProjectReference Include="..\ConnectionHandler\ConnectionHandler.csproj">
-      <Project>{1abb4694-0311-405c-a627-6380159915b9}</Project>
-      <Name>ConnectionHandler</Name>
+    <ProjectReference Include="..\InputHandler\InputHandler.csproj">
+      <Project>{b6620e52-b742-4150-9cde-2dc643f82471}</Project>
+      <Name>InputHandler</Name>
     </ProjectReference>
     <ProjectReference Include="..\Logger\Logger.csproj">
       <Project>{4eb81447-5e11-4bb1-ad5a-047079310cc2}</Project>

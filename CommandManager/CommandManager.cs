@@ -20,16 +20,21 @@ namespace CommandManager
             _commands.Add(command.GetName(), command);
         }
 
-        public void ExecuteCommand(string name, CommandArgs args)
+        public void ExecuteCommand(string commandName, CommandArgs args)
         {
-            if(_commands.ContainsKey(name))
+            if(CommandAvailable(commandName))
             {
-                _commands[name].Execute(args);
+                _commands[commandName].Execute(args);
             }
             else
             {
-                throw new Exception($"Command '{name}' not found!");
+                throw new Exception($"Command '{commandName}' not found!");
             }
+        }
+
+        public bool CommandAvailable(string command)
+        {
+            return _commands.ContainsKey(command);
         }
 
         public List<string> GetAvailableCommandsNamesList()

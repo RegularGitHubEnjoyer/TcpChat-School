@@ -8,15 +8,15 @@ namespace MessageHandler
 {
     public class Message
     {
-        private MessageHeader _messageHeader;
-        private string[] _messageArgs;
-        private string _messageBody;
+        public MessageHeader messageHeader;
+        public string[] messageArgs;
+        public string messageBody;
 
         private Message(MessageHeader messageHeader, string[] messageArgs, string messageBody)
         {
-            _messageHeader = messageHeader;
-            _messageArgs = messageArgs;
-            _messageBody = messageBody;
+            this.messageHeader = messageHeader;
+            this.messageArgs = messageArgs;
+            this.messageBody = messageBody;
         }
 
         public static Message Request(string[] messageArgs, string messageBody)
@@ -56,8 +56,8 @@ namespace MessageHandler
 
         public override string ToString()
         {
-            string argsString = _messageArgs.Aggregate("", (sum, next) => $"{sum + next} ").Trim();
-            return $"{_messageHeader} {argsString}\n{_messageBody}";
+            string argsString = messageArgs.Aggregate("", (sum, next) => $"{sum + next} ").Trim();
+            return $"{messageHeader} {argsString}\n{messageBody}";
         }
     }
 }

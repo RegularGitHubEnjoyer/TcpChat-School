@@ -16,7 +16,7 @@ namespace Logger
         {
             _type = type;
             _message = message;
-            _timestamp = DateTime.Now.ToShortTimeString();
+            _timestamp = DateTime.Now.ToLongTimeString();
         }
 
         public string GetMessageWithTimeStamp()
