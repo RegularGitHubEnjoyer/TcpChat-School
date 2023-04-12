@@ -9,44 +9,44 @@ namespace MessageHandler
     public class Message
     {
         public MessageHeader messageHeader;
-        public string[] messageArgs;
+        public string messageArg;
         public string messageBody;
 
-        private Message(MessageHeader messageHeader, string[] messageArgs, string messageBody)
+        private Message(MessageHeader messageHeader, string messageArg, string messageBody)
         {
             this.messageHeader = messageHeader;
-            this.messageArgs = messageArgs;
+            this.messageArg = messageArg;
             this.messageBody = messageBody;
         }
 
-        public static Message Request(string[] messageArgs, string messageBody)
+        public static Message Request(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Request, messageArgs, messageBody);
+            return new Message(MessageHeader.Request, messageArg, messageBody);
         }
 
-        public static Message Response(string[] messageArgs, string messageBody)
+        public static Message Response(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Response, messageArgs, messageBody);
+            return new Message(MessageHeader.Response, messageArg, messageBody);
         }
 
-        public static Message PublicMessage(string[] messageArgs, string messageBody)
+        public static Message PublicMessage(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Public_Message, messageArgs, messageBody);
+            return new Message(MessageHeader.Public_Message, messageArg, messageBody);
         }
 
-        public static Message PrivateMessage(string[] messageArgs, string messageBody)
+        public static Message PrivateMessage(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Private_Message, messageArgs, messageBody);
+            return new Message(MessageHeader.Private_Message, messageArg, messageBody);
         }
 
-        public static Message Error(string[] messageArgs, string messageBody)
+        public static Message Error(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Error, messageArgs, messageBody);
+            return new Message(MessageHeader.Error, messageArg, messageBody);
         }
 
-        public static Message ConnectionStatus(string[] messageArgs, string messageBody)
+        public static Message ConnectionStatus(string messageArg, string messageBody)
         {
-            return new Message(MessageHeader.Connection_Status, messageArgs, messageBody);
+            return new Message(MessageHeader.Connection_Status, messageArg, messageBody);
         }
 
         public static Message Parse(string message)
@@ -56,7 +56,7 @@ namespace MessageHandler
 
         public override string ToString()
         {
-            string argsString = messageArgs.Aggregate("", (sum, next) => $"{sum + next} ").Trim();
+            string argsString = messageArg.Aggregate("", (sum, next) => $"{sum + next} ").Trim();
             return $"{messageHeader} {argsString}\n{messageBody}";
         }
     }

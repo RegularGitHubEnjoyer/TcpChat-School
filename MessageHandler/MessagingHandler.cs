@@ -25,5 +25,20 @@ namespace MessageHandler
             string messageString = Encoding.UTF8.GetString(buffer.ToArray(), 0, bytesReceived);
             return Message.Parse(messageString);
         }
+
+        public static void SendMessage(Message message, Socket receiver)
+        {
+            string messageString = message.ToString();
+            byte[] buffer = Encoding.UTF8.GetBytes(messageString);
+            receiver.Send(buffer, SocketFlags.None);
+        }
+
+        public static Message ReceiveMessage(Socket sender)
+        {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesReceived = sender.Receive(buffer);
+            string messageString = Encoding.UTF8.GetString(buffer.ToArray(), 0, bytesReceived);
+            return Message.Parse(messageString);
+        }
     }
 }
