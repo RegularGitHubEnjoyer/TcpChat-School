@@ -14,14 +14,12 @@ namespace ChatServer
         private Socket _listener;
         private bool _isListening;
 
-        private Queue<Socket> _validationQueue;
         private Dictionary<string, Socket> _connectedClients;
 
         public ChatServer()
         {
             _isListening = false;
             _connectedClients = new Dictionary<string, Socket>();
-            _validationQueue = new Queue<Socket>();
         }
 
         public void Start(IPEndPoint endPoint)
@@ -52,35 +50,24 @@ namespace ChatServer
             return _isListening;
         }
 
-        public void AcceptConnectionIfPending()
+        public bool HasPendingConnection()
         {
-            if (_listener.Poll(100, SelectMode.SelectRead))
-            {
-                Socket connection = _listener.Accept();
-                _validationQueue.Enqueue(connection);
-            }
+            return _listener.Poll(100, SelectMode.SelectRead);
         }
 
-        public bool HasPendingValidations()
+        public Socket AcceptConnection()
         {
-            return _validationQueue.Count > 0;
+            return _listener.Accept();
         }
 
-        public bool AcceptNextIfValid()
+        public bool IsClientConnected(string username)
         {
-            Socket connection = _validationQueue.Dequeue();
-            string username = _requestUsername(connection);
+            return _connectedClients.ContainsKey(username);
+        }
 
-            if (_requestedUsernameIsValid(username))
-            {
-                _acceptClientWithUsername(connection, username);
-                return true;
-            }
-            else
-            {
-                connection.Close(5);
-                return false;
-            }
+        public void AddClientConnection(string username, Socket connection)
+        {
+            _connectedClients.Add(username, connection);
         }
 
         public Queue<Message> CollectMessagesFromConnectedClients()
@@ -93,11 +80,9 @@ namespace ChatServer
                     if (_connectedClients[username].Available > 0)
                     {
                         Message receivedMessage = MessagingHandler.ReceiveMessage(_connectedClients[username]);
+                        receivedMessage.AddArgument("sender", username);
+
                         messageQueue.Enqueue(receivedMessage);
-                    }
-                    else
-                    {
-                        _disconnectClient(username);
                     }
                 }
             }
@@ -105,9 +90,10 @@ namespace ChatServer
             return messageQueue;
         }
 
-        public void DisconnectClientIfExist(string username)
+        public void DisconnectClient(string username)
         {
-            if (_connectedClients.ContainsKey(username)) _disconnectClient(username);
+            _connectedClients[username].Close(5);
+            _connectedClients.Remove(username);
         }
 
         public void BroadcastMessage(Message message)
@@ -139,54 +125,6 @@ namespace ChatServer
             _listener.Bind(endPoint);
             _listener.Listen(10);
             _isListening = true;
-        }
-
-        private string _requestUsername(Socket connection)
-        {
-            connection.ReceiveTimeout = 5 * 1000;
-            connection.SendTimeout = 5 * 1000;
-
-            string username = "";
-
-            try
-            {
-                Message usernameRequest = Message.Request("Username");
-                MessagingHandler.SendMessage(usernameRequest, connection);
-
-                Message clientResponse = MessagingHandler.ReceiveMessage(connection);
-                if (clientResponse.messageHeader == MessageHeader.Response && clientResponse.HasArgument("username"))
-                {
-                    username = clientResponse.GetArgumentValue("username");
-                }
-            }
-            catch (SocketException e)
-            {
-                
-            }
-            finally
-            {
-                connection.ReceiveTimeout = 0;
-                connection.SendTimeout = 0;
-            }
-
-            return username;
-        }
-
-        private bool _requestedUsernameIsValid(string username)
-        {
-            return !string.IsNullOrEmpty(username) && !_connectedClients.ContainsKey(username);
-        }
-
-        private void _acceptClientWithUsername(Socket client, string username)
-        {
-            _connectedClients.Add(username, client);
-            //Send connection status message
-        }
-
-        private void _disconnectClient(string username)
-        {
-            _connectedClients[username].Close(5);
-            _connectedClients.Remove(username);
         }
     }
 }

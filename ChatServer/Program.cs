@@ -19,6 +19,7 @@ namespace ChatServer
 
         static ChatServer server;
 
+        static Queue<Socket> validationQueue;
         static void Main(string[] args)
         {
             logger = new Logger.Logger();
@@ -106,7 +107,11 @@ namespace ChatServer
             {
                 try
                 {
-                    server.AcceptConnectionIfPending();
+                    if (server.HasPendingConnection())
+                    {
+                        Socket connection = server.AcceptConnection();
+                        validationQueue.Enqueue(connection);
+                    }
                 }
                 catch (ObjectDisposedException e)
                 {
@@ -128,14 +133,77 @@ namespace ChatServer
 
         static void HandleValidations()
         {
-            while (server.HasPendingValidations())
+            while (validationQueue.Count > 0)
             {
-                logger.LogInfo("Connecting client...");
-                bool accepted = server.AcceptNextIfValid();
+                Socket connectionToValidate = validationQueue.Dequeue();
 
-                if (accepted) logger.LogSuccess("Succesfully connected new client!");
-                else logger.LogInfo("Client connection rejected!");
+                logger.LogInfo("Connecting client...");
+                var (username, password) = GetConnectionLoginInfo(connectionToValidate);
+
+                bool isConnectionValid = false;
+
+                if (!string.IsNullOrEmpty(username))
+                {
+                    if (server.IsClientConnected(username))
+                    {
+                        logger.LogInfo($"Client with username '{username}' is already connected!");
+
+                    }
+                    else
+                    {
+                        isConnectionValid = true;
+                    }
+                }
+
+                if (isConnectionValid)
+                {
+                    logger.LogSuccess("Succesfully connected new client!");
+                    server.AddClientConnection(username, connectionToValidate);
+                }
+                else
+                {
+                    logger.LogInfo("Client connection rejected.");
+                    connectionToValidate.Close(5);
+                }
             }
+        }
+
+        static (string username, string password) GetConnectionLoginInfo(Socket connection)
+        {
+            string username = null;
+            string password = null;
+
+            connection.ReceiveTimeout = 5 * 1000;
+            connection.SendTimeout = 5 * 1000;
+
+            try
+            {
+                Message loginInfoRequest = Message.Request("Provide username and password");
+                loginInfoRequest.AddArgument("request", "LoginInfo");
+
+                MessagingHandler.SendMessage(loginInfoRequest, connection);
+
+                Message connectionResponse = MessagingHandler.ReceiveMessage(connection);
+
+                if(connectionResponse.messageHeader == MessageHeader.Response)
+                {
+                    if(connectionResponse.HasArgument("username"))
+                        username = connectionResponse.GetArgumentValue("username");
+
+                    if (connectionResponse.HasArgument("password"))
+                        password = connectionResponse.GetArgumentValue("password");
+                }
+            }
+            catch (SocketException e)
+            {
+                logger.LogInfo("Connection timed out!");
+                return (null, null);
+            }
+
+            connection.ReceiveTimeout = 0;
+            connection.SendTimeout = 0;
+
+            return (username, password);
         }
 
         static void HandlePendingMessages(Queue<Message> pendingMessages)
