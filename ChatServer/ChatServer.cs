@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using MessageHandler;
 
 namespace ChatServer
@@ -18,22 +17,23 @@ namespace ChatServer
         private Queue<Socket> _validationQueue;
         private Dictionary<string, Socket> _connectedClients;
 
-        private Queue<Message> _messageQueue;
-
         public ChatServer()
         {
             _isListening = false;
             _connectedClients = new Dictionary<string, Socket>();
             _validationQueue = new Queue<Socket>();
-            _messageQueue = new Queue<Message>();
         }
 
         public void Start(IPEndPoint endPoint)
         {
-            _initializeSocket(endPoint);
+            try
+            {
+                _initializeSocket(endPoint);
+            }
+            catch(SocketException e)
+            {
 
-            Thread clientConnectionThread = new Thread(_handleConnections);
-            clientConnectionThread.Start();
+            }
         }
 
         public void Stop()
@@ -83,8 +83,9 @@ namespace ChatServer
             }
         }
 
-        public void CollectMessagesFromConnectedClients()
+        public Queue<Message> CollectMessagesFromConnectedClients()
         {
+            Queue<Message> messageQueue = new Queue<Message>();
             foreach (string username in _connectedClients.Keys)
             {
                 if (_connectedClients[username].Poll(100, SelectMode.SelectRead))
@@ -92,7 +93,7 @@ namespace ChatServer
                     if (_connectedClients[username].Available > 0)
                     {
                         Message receivedMessage = MessagingHandler.ReceiveMessage(_connectedClients[username]);
-                        _messageQueue.Enqueue(receivedMessage);
+                        messageQueue.Enqueue(receivedMessage);
                     }
                     else
                     {
@@ -100,16 +101,8 @@ namespace ChatServer
                     }
                 }
             }
-        }
 
-        public bool HasPendingMessages()
-        {
-            return _messageQueue.Count > 0;
-        }
-
-        public Message GetNextPendingMessage()
-        {
-            return _messageQueue.Dequeue();
+            return messageQueue;
         }
 
         public void DisconnectClientIfExist(string username)
@@ -121,7 +114,7 @@ namespace ChatServer
         {
             foreach (string username in _connectedClients.Keys)
             {
-                if (username == message.messageArg) continue;
+                if (message.HasArgument("sender") && message.GetArgumentValue("sender") == username) continue;
 
                 MessagingHandler.SendMessage(message, _connectedClients[username]);
             }
@@ -129,11 +122,14 @@ namespace ChatServer
 
         public void SendPrivateMessage(Message message)
         {
-            string[] usernames = message.messageArg.Split(' ');
-
-            if (usernames.Length > 2 && _connectedClients.ContainsKey(usernames[1]))
+            if (message.HasArgument("receiver"))
             {
-                MessagingHandler.SendMessage(message, _connectedClients[usernames[1]]);
+                string username = message.GetArgumentValue("receiver");
+
+                if (_connectedClients.ContainsKey(username))
+                {
+                    MessagingHandler.SendMessage(message, _connectedClients[username]);
+                }
             }
         }
 
@@ -154,13 +150,13 @@ namespace ChatServer
 
             try
             {
-                Message usernameRequest = Message.Request("LoginInfo", "Username");
+                Message usernameRequest = Message.Request("Username");
                 MessagingHandler.SendMessage(usernameRequest, connection);
 
                 Message clientResponse = MessagingHandler.ReceiveMessage(connection);
-                if(clientResponse.messageHeader == MessageHeader.Response && clientResponse.messageArg.Equals("Username", StringComparison.OrdinalIgnoreCase))
+                if (clientResponse.messageHeader == MessageHeader.Response && clientResponse.HasArgument("username"))
                 {
-                    username = clientResponse.messageBody;
+                    username = clientResponse.GetArgumentValue("username");
                 }
             }
             catch (SocketException e)

@@ -8,55 +8,109 @@ namespace MessageHandler
 {
     public class Message
     {
+        private Dictionary<string, string> _messageArgs;
+
         public MessageHeader messageHeader;
-        public string messageArg;
         public string messageBody;
 
-        private Message(MessageHeader messageHeader, string messageArg, string messageBody)
+        private Message(MessageHeader messageHeader, string messageBody)
         {
+            _messageArgs = new Dictionary<string, string>();
+
             this.messageHeader = messageHeader;
-            this.messageArg = messageArg;
             this.messageBody = messageBody;
         }
 
-        public static Message Request(string messageArg, string messageBody)
+        public static Message Request(string messageBody)
         {
-            return new Message(MessageHeader.Request, messageArg, messageBody);
+            return new Message(MessageHeader.Request, messageBody);
         }
 
-        public static Message Response(string messageArg, string messageBody)
+        public static Message Response(string messageBody)
         {
-            return new Message(MessageHeader.Response, messageArg, messageBody);
+            return new Message(MessageHeader.Response, messageBody);
         }
 
-        public static Message PublicMessage(string messageArg, string messageBody)
+        public static Message PublicMessage(string messageBody)
         {
-            return new Message(MessageHeader.Public_Message, messageArg, messageBody);
+            return new Message(MessageHeader.Public_Message, messageBody);
         }
 
-        public static Message PrivateMessage(string messageArg, string messageBody)
+        public static Message PrivateMessage(string messageBody)
         {
-            return new Message(MessageHeader.Private_Message, messageArg, messageBody);
+            return new Message(MessageHeader.Private_Message, messageBody);
         }
 
-        public static Message Error(string messageArg, string messageBody)
+        public static Message Error(string messageBody)
         {
-            return new Message(MessageHeader.Error, messageArg, messageBody);
+            return new Message(MessageHeader.Error, messageBody);
         }
 
-        public static Message ConnectionStatus(string messageArg, string messageBody)
+        public static Message ConnectionStatus( string messageBody)
         {
-            return new Message(MessageHeader.Connection_Status, messageArg, messageBody);
+            return new Message(MessageHeader.Connection_Status, messageBody);
         }
 
-        public static Message Parse(string message)
+        public static Message Parse(string messageString)
         {
-            return new Message(MessageHeader.Unknown, null, "");
+            string[] messageParts = messageString.Split('\n');
+
+            string messageHeaderString = messageParts[0].Substring(0, messageParts[0].IndexOf(' ')).Trim();
+            string[] messageArgs = messageParts[0].Substring(messageParts[0].IndexOf(' ')).Trim().Split(',');
+            string messageBody = messageParts[1].Trim();
+
+            MessageHeader messageHeader;
+
+            try
+            {
+                messageHeader = (MessageHeader)Enum.Parse(typeof(MessageHeader), messageHeaderString);
+            }
+            catch (Exception e) when (e is ArgumentNullException || e is ArgumentException || e is OverflowException)
+            {
+                messageHeader = MessageHeader.Unknown;
+            }
+
+            Message message = new Message(messageHeader, messageBody);
+
+            foreach (string arg in messageArgs)
+            {
+                string argName = arg.Substring(0, arg.IndexOf('='));
+                string argValue = arg.Substring(arg.IndexOf('=') + 1);
+
+                message.AddArgument(argName, argValue);
+            }
+
+            return message;
+        }
+
+        public void AddArgument(string argName, object value)
+        {
+            _messageArgs.Add(argName, value.ToString());
+        }
+
+        public bool HasArgument(string argName)
+        {
+            return _messageArgs.Keys.Any(arg => arg.ToLower() == argName.ToLower());
+        }
+
+        public string[] GetArgumentsNames()
+        {
+            return _messageArgs.Keys.ToArray();
+        }
+
+        public string GetArgumentValue(string argName)
+        {
+            return _messageArgs.First(arg => arg.Key.Equals(argName, StringComparison.OrdinalIgnoreCase)).Value;
+        }
+
+        public int GetNumberOfArguments()
+        {
+            return _messageArgs.Count;
         }
 
         public override string ToString()
         {
-            string argsString = messageArg.Aggregate("", (sum, next) => $"{sum + next} ").Trim();
+            string argsString = _messageArgs.Aggregate("", (sum, next) => $"{sum} {next.Key}={next.Value}").Trim().Replace(' ', ',');
             return $"{messageHeader} {argsString}\n{messageBody}";
         }
     }

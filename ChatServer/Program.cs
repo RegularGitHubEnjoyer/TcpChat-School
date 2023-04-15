@@ -46,10 +46,10 @@ namespace ChatServer
                 {
                     logger.LogSuccess("Server started succesfully!");
 
-                    Thread connectionListenThread = new Thread(HandleNewConnections);
+                    Thread connectionListenThread = new Thread(HandleNewConnectionsThread);
                     connectionListenThread.Start();
 
-                    Thread clientConnectionThread = new Thread(HandleCurrentConnections);
+                    Thread clientConnectionThread = new Thread(HandleCurrentConnectionsThread);
                     clientConnectionThread.Start();
                 }
                 else
@@ -57,14 +57,12 @@ namespace ChatServer
                     logger.LogWarning("Unable to start server!");
                 }
             });
-
             Command stopCmd = new Command("stop", cmdArgs =>
             {
                 logger.LogInfo("Stopping server...");
                 server.Stop();
                 logger.LogSuccess("Server stopped succesfully!");
             });
-
             Command quitCmd = new Command("quit", cmdArgs =>
             {
                 server.Stop();
@@ -102,7 +100,7 @@ namespace ChatServer
             }
         }
 
-        static void HandleNewConnections()
+        static void HandleNewConnectionsThread()
         {
             while (server.IsListening())
             {
@@ -121,11 +119,11 @@ namespace ChatServer
             }
         }
 
-        static void HandleCurrentConnections()
+        static void HandleCurrentConnectionsThread()
         {
             HandleValidations();
-            HandleReceivingMessages();
-            HandleSendingMessages();
+            Queue<Message> messages = server.CollectMessagesFromConnectedClients();
+            HandlePendingMessages(messages);
         }
 
         static void HandleValidations()
@@ -140,16 +138,11 @@ namespace ChatServer
             }
         }
 
-        static void HandleReceivingMessages()
+        static void HandlePendingMessages(Queue<Message> pendingMessages)
         {
-            server.CollectMessagesFromConnectedClients();
-        }
-
-        static void HandleSendingMessages()
-        {
-            while (server.HasPendingMessages())
+            while (pendingMessages.Count > 0)
             {
-                Message pendingMessage = server.GetNextPendingMessage();
+                Message pendingMessage = pendingMessages.Dequeue();
 
                 switch (pendingMessage.messageHeader)
                 {
@@ -168,10 +161,10 @@ namespace ChatServer
 
         static void HandleRequest(Message request)
         {
-            if (request.messageArg.Equals("disconnect"))
-            {
-                server.DisconnectClientIfExist(request.messageBody);
-            }
+            //if (request.messageArg.Equals("disconnect"))
+            //{
+            //    server.DisconnectClientIfExist(request.messageBody);
+            //}
         }
     }
 }
