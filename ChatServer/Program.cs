@@ -32,6 +32,8 @@ namespace ChatServer
             inputHandler.InputProcessor += ProcessInput;
             logger.LogHistoryChanged += view.UpdateView;
 
+            validationQueue = new Queue<Socket>();
+
             server = new ChatServer();
 
             bool isRunning = true;
@@ -41,9 +43,19 @@ namespace ChatServer
                 logger.LogInfo("Starting server...");
 
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 11000);
-                server.Start(endPoint);
 
-                if (server.IsListening())
+                try
+                {
+                    server.Start(endPoint);
+                }
+                catch(SocketException e)
+                {
+                    logger.LogWarning("Unable to start server!");
+                    logger.LogError(e.Message);
+                }
+
+
+                if (server.IsListening)
                 {
                     logger.LogSuccess("Server started succesfully!");
 
@@ -52,10 +64,6 @@ namespace ChatServer
 
                     Thread clientConnectionThread = new Thread(HandleCurrentConnectionsThread);
                     clientConnectionThread.Start();
-                }
-                else
-                {
-                    logger.LogWarning("Unable to start server!");
                 }
             });
             Command stopCmd = new Command("stop", cmdArgs =>
@@ -103,7 +111,7 @@ namespace ChatServer
 
         static void HandleNewConnectionsThread()
         {
-            while (server.IsListening())
+            while (server.IsListening)
             {
                 try
                 {
@@ -115,7 +123,7 @@ namespace ChatServer
                 }
                 catch (ObjectDisposedException e)
                 {
-                    if (server.IsListening())
+                    if (server.IsListening)
                     {
                         server.Stop();
                         break;
@@ -215,7 +223,7 @@ namespace ChatServer
                 switch (pendingMessage.messageHeader)
                 {
                     case MessageHeader.Request:
-                        HandleRequest(pendingMessage);
+                        HandleRequests(pendingMessage);
                         break;
                     case MessageHeader.Public_Message:
                         server.BroadcastMessage(pendingMessage);
@@ -227,12 +235,25 @@ namespace ChatServer
             }
         }
 
-        static void HandleRequest(Message request)
+        static void HandleRequests(Message request)
         {
-            //if (request.messageArg.Equals("disconnect"))
-            //{
-            //    server.DisconnectClientIfExist(request.messageBody);
-            //}
+            if (request.HasArgument("request"))
+            {
+                string requestedAction = request.GetArgumentValue("request");
+
+                if(requestedAction.Equals("disconnect", StringComparison.OrdinalIgnoreCase))
+                {
+                    string username = request.GetArgumentValue("sender");
+
+                    Message disconnectStatus = Message.ConnectionStatus("Succesfully disconnected!");
+                    disconnectStatus.AddArgument("status", "disconnected");
+
+                    MessagingHandler.SendMessage(disconnectStatus, server.GetClientByUsername(username));
+                    server.DisconnectClient(username);
+
+                    logger.LogInfo($"Client {username} disconnected: Disconnect requested");
+                }
+            }
         }
     }
 }

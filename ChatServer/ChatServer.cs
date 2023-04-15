@@ -16,6 +16,8 @@ namespace ChatServer
 
         private Dictionary<string, Socket> _connectedClients;
 
+        public bool IsListening => _isListening;
+
         public ChatServer()
         {
             _isListening = false;
@@ -24,14 +26,10 @@ namespace ChatServer
 
         public void Start(IPEndPoint endPoint)
         {
-            try
-            {
-                _initializeSocket(endPoint);
-            }
-            catch(SocketException e)
-            {
-
-            }
+            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listener.Bind(endPoint);
+            _listener.Listen(10);
+            _isListening = true;
         }
 
         public void Stop()
@@ -43,11 +41,6 @@ namespace ChatServer
                 _listener = null;
                 _connectedClients.Clear();
             }
-        }
-
-        public bool IsListening()
-        {
-            return _isListening;
         }
 
         public bool HasPendingConnection()
@@ -63,6 +56,11 @@ namespace ChatServer
         public bool IsClientConnected(string username)
         {
             return _connectedClients.ContainsKey(username);
+        }
+
+        public Socket GetClientByUsername(string username)
+        {
+            return _connectedClients[username];
         }
 
         public void AddClientConnection(string username, Socket connection)
@@ -117,14 +115,6 @@ namespace ChatServer
                     MessagingHandler.SendMessage(message, _connectedClients[username]);
                 }
             }
-        }
-
-        private void _initializeSocket(IPEndPoint endPoint)
-        {
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listener.Bind(endPoint);
-            _listener.Listen(10);
-            _isListening = true;
         }
     }
 }
