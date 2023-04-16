@@ -153,10 +153,14 @@ namespace ChatClient
             {
                 return client.GetPendingMessages();
             }
-            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException) { }
+            catch (SocketException)
             {
-                return new Queue<Message>();
+                client.Disconnect();
+                logger.LogInfo("Connection with servert timed out!");
             }
+
+            return new Queue<Message>();
         }
 
         static void HandleReceivedMessages(Queue<Message> messages)
@@ -268,9 +272,11 @@ namespace ChatClient
                 SendMessages(messagesToSend.Where(msg => msg.messageHeader == MessageHeader.Request));
                 SendMessages(messagesToSend.Where(msg => msg.messageHeader == MessageHeader.Public_Message || msg.messageHeader == MessageHeader.Private_Message));
             }
-            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException) { }
+            catch (SocketException)
             {
-                
+                client.Disconnect();
+                logger.LogInfo("Connection with servert timed out!");
             }
             finally
             {

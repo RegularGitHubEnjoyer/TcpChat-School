@@ -26,6 +26,8 @@ namespace ChatClient
             _client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             _client.Connect(endPoint);
+            _client.SendTimeout = 5 * 1000;
+            _client.ReceiveTimeout = 5 * 1000;
             _isConnected = true;
         }
 
