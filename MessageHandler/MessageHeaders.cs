@@ -8,6 +8,7 @@
         Connection_Status,
         Public_Message,
         Private_Message,
+        Server,
         Error
     }
 }

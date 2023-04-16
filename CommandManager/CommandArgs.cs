@@ -6,16 +6,13 @@ using System.Threading.Tasks;
 
 namespace CommandManager
 {
-    public class CommandArgs
+    public class CommandArgs : List<string>
     {
-        private HashSet<string> _args;
-
-        public CommandArgs(string[] args)
+        public CommandArgs(params string[] args)
         {
-            _args = new HashSet<string>();
             foreach (string arg in args)
             {
-                _args.Add(arg);
+                Add(arg);
             }
         }
 
@@ -26,17 +23,12 @@ namespace CommandManager
 
         public bool HasArgument(string arg)
         {
-            return _args.Contains(arg);
-        }
-
-        public int GetNumOfArgs()
-        {
-            return _args.Count;
+            return Contains(arg);
         }
 
         public string GetArgsString()
         {
-            return (_args.Aggregate("", (sum, next) => $"{sum + next} ")).Trim();
+            return (this.Aggregate("", (sum, next) => $"{sum + next} ")).Trim();
         }
     }
 }

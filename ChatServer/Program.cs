@@ -40,6 +40,12 @@ namespace ChatServer
 
             Command startCmd = new Command("start", cmdArgs =>
             {
+                if (server.IsListening)
+                {
+                    logger.LogWarning("Server is already started!");
+                    return;
+                }
+
                 logger.LogInfo("Starting server...");
 
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 11000);
@@ -69,6 +75,11 @@ namespace ChatServer
             Command stopCmd = new Command("stop", cmdArgs =>
             {
                 logger.LogInfo("Stopping server...");
+
+                Message serverClosedStatus = Message.ConnectionStatus("Server closed!");
+                serverClosedStatus.AddArgument("status", "disconnected");
+                server.BroadcastMessage(serverClosedStatus);
+
                 server.Stop();
                 logger.LogSuccess("Server stopped succesfully!");
             });
@@ -81,6 +92,8 @@ namespace ChatServer
             commandManager.AddCommand(startCmd);
             commandManager.AddCommand(stopCmd);
             commandManager.AddCommand(quitCmd);
+
+            commandManager.ExecuteCommand("start");
 
             while (isRunning)
             {
@@ -118,10 +131,10 @@ namespace ChatServer
                     if (server.HasPendingConnection())
                     {
                         Socket connection = server.AcceptConnection();
-                        validationQueue.Enqueue(connection);
+                        if(connection != null) validationQueue.Enqueue(connection);
                     }
                 }
-                catch (ObjectDisposedException e)
+                catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
                 {
                     if (server.IsListening)
                     {
@@ -129,50 +142,46 @@ namespace ChatServer
                         break;
                     }
                 }
+                catch(SocketException e)
+                {
+                    server.Stop();
+                    logger.LogError(e.Message);
+                    break;
+                }
             }
         }
 
         static void HandleCurrentConnectionsThread()
         {
-            HandleValidations();
-            Queue<Message> messages = server.CollectMessagesFromConnectedClients();
-            HandlePendingMessages(messages);
+            while (server.IsListening)
+            {
+                HandleValidations();
+                Queue<Message> messages = server.CollectMessagesFromClients();
+                HandlePendingMessages(messages);
+                DisconnectClientsWhoLostConnection();
+            }
         }
 
         static void HandleValidations()
         {
-            while (validationQueue.Count > 0)
+            while(validationQueue.Count > 0)
             {
                 Socket connectionToValidate = validationQueue.Dequeue();
+                IPEndPoint endPoint = (IPEndPoint)connectionToValidate.RemoteEndPoint;
 
-                logger.LogInfo("Connecting client...");
+                logger.LogInfo($"Connecting client at {endPoint.Address}:{endPoint.Port}...");
                 var (username, password) = GetConnectionLoginInfo(connectionToValidate);
 
-                bool isConnectionValid = false;
-
-                if (!string.IsNullOrEmpty(username))
+                if (username is null)
                 {
-                    if (server.IsClientConnected(username))
-                    {
-                        logger.LogInfo($"Client with username '{username}' is already connected!");
-
-                    }
-                    else
-                    {
-                        isConnectionValid = true;
-                    }
-                }
-
-                if (isConnectionValid)
-                {
-                    logger.LogSuccess("Succesfully connected new client!");
-                    server.AddClientConnection(username, connectionToValidate);
-                }
-                else
-                {
-                    logger.LogInfo("Client connection rejected.");
                     connectionToValidate.Close(5);
+                    return;
                 }
+
+                bool isUsernameValid = ValidateUsername(username);
+
+                if (isUsernameValid) AcceptNewConnectionWithUsername(connectionToValidate, username);
+                else RejectConnection(connectionToValidate, "Invalid Username!");
             }
         }
 
@@ -180,12 +189,11 @@ namespace ChatServer
         {
             string username = null;
             string password = null;
-
-            connection.ReceiveTimeout = 5 * 1000;
-            connection.SendTimeout = 5 * 1000;
-
             try
             {
+                connection.ReceiveTimeout = 5 * 1000;
+                connection.SendTimeout = 5 * 1000;
+
                 Message loginInfoRequest = Message.Request("Provide username and password");
                 loginInfoRequest.AddArgument("request", "LoginInfo");
 
@@ -193,25 +201,62 @@ namespace ChatServer
 
                 Message connectionResponse = MessagingHandler.ReceiveMessage(connection);
 
-                if(connectionResponse.messageHeader == MessageHeader.Response)
+                if (connectionResponse.messageHeader == MessageHeader.Response)
                 {
-                    if(connectionResponse.HasArgument("username"))
+                    if (connectionResponse.HasArgument("username"))
                         username = connectionResponse.GetArgumentValue("username");
 
                     if (connectionResponse.HasArgument("password"))
                         password = connectionResponse.GetArgumentValue("password");
                 }
             }
-            catch (SocketException e)
+            catch (SocketException)
             {
                 logger.LogInfo("Connection timed out!");
                 return (null, null);
             }
 
-            connection.ReceiveTimeout = 0;
-            connection.SendTimeout = 0;
-
             return (username, password);
+        }
+
+        static bool ValidateUsername(string username)
+        {
+            return !string.IsNullOrEmpty(username) && !server.IsClientConnectedWithUsername(username);
+        }
+
+        static void AcceptNewConnectionWithUsername(Socket connection, string username)
+        {
+            try
+            {
+                Message status = Message.ConnectionStatus("Succesfully connected to Server!");
+                status.AddArgument("status", "Connected");
+                MessagingHandler.SendMessage(status, connection);
+            }
+            catch(SocketException)
+            {
+                connection.Close(5);
+                logger.LogInfo("Connection lost.");
+            }
+
+            logger.LogSuccess($"Succesfully connected new client with username: {username}");
+            server.AddClientConnection(username, new Client(connection, username));
+        }
+
+        static void RejectConnection(Socket connection, string reason)
+        {
+            logger.LogInfo($"Client connection rejected: {reason}");
+
+            try
+            {
+                Message status = Message.ConnectionStatus($"Connection rejected: {reason}");
+                status.AddArgument("status", "Rejected");
+                MessagingHandler.SendMessage(status, connection);
+            }
+            catch (SocketException) { }
+            finally
+            {
+                connection.Close(5);
+            }
         }
 
         static void HandlePendingMessages(Queue<Message> pendingMessages)
@@ -223,19 +268,19 @@ namespace ChatServer
                 switch (pendingMessage.messageHeader)
                 {
                     case MessageHeader.Request:
-                        HandleRequests(pendingMessage);
+                        HandleRequest(pendingMessage);
                         break;
                     case MessageHeader.Public_Message:
                         server.BroadcastMessage(pendingMessage);
                         break;
                     case MessageHeader.Private_Message:
-                        server.SendPrivateMessage(pendingMessage);
+                        server.SendMessage(pendingMessage);
                         break;
                 }
             }
         }
 
-        static void HandleRequests(Message request)
+        static void HandleRequest(Message request)
         {
             if (request.HasArgument("request"))
             {
@@ -247,12 +292,47 @@ namespace ChatServer
 
                     Message disconnectStatus = Message.ConnectionStatus("Succesfully disconnected!");
                     disconnectStatus.AddArgument("status", "disconnected");
+                    disconnectStatus.AddArgument("receiver", username);
+                    server.SendMessage(disconnectStatus);
 
-                    MessagingHandler.SendMessage(disconnectStatus, server.GetClientByUsername(username));
                     server.DisconnectClient(username);
 
                     logger.LogInfo($"Client {username} disconnected: Disconnect requested");
+
+                    Message disconnectInfo = Message.Server($"Client '{username}' disconnected!");
+
+                    server.BroadcastMessage(disconnectInfo);
                 }
+                else if (requestedAction.Equals("UserList", StringComparison.OrdinalIgnoreCase))
+                {
+                    string username = request.GetArgumentValue("sender");
+
+                    Message userList = Message.Response(String.Join("\n", server.GetClientsUsernames()));
+                    userList.AddArgument("requested", "UserList");
+                    userList.AddArgument("receiver", username);
+
+                    server.SendMessage(userList);
+                }
+            }
+        }
+
+        static void DisconnectClientsWhoLostConnection()
+        {
+            List<Client> clients = server.GetClientsWhoLostConnection();
+
+            foreach (Client client in clients)
+            {
+                logger.LogInfo($"Client '{client.Username}' lost connection!");
+
+                Message disconnectInfo = Message.Server($"Client: {client.Username} lost connection!");
+
+                try
+                {
+                    server.BroadcastMessage(disconnectInfo);
+                }
+                catch (SocketException) { }
+
+                server.DisconnectClient(client.Username);
             }
         }
     }

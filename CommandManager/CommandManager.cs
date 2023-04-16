@@ -32,6 +32,11 @@ namespace CommandManager
             }
         }
 
+        public void ExecuteCommand(string commandName)
+        {
+            ExecuteCommand(commandName, CommandArgs.Parse(""));
+        }
+
         public bool CommandAvailable(string command)
         {
             return _commands.ContainsKey(command);

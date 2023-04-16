@@ -10,6 +10,7 @@ namespace Logger
     {
         private List<Log> _logHistory;
 
+        public List<Log> LogHistory => _logHistory;
         public event Action LogHistoryChanged;
 
         public Logger()
@@ -25,7 +26,7 @@ namespace Logger
             Log[] logs = new Log[size];
             for (int i = 0; i < size; i++)
             {
-                logs[i] = _logHistory[_logHistory.Count - 1 - i];
+                logs[i] = GetLog(_logHistory.Count - 1 - i);
             }
             return logs;
         }

@@ -51,6 +51,11 @@ namespace MessageHandler
             return new Message(MessageHeader.Connection_Status, messageBody);
         }
 
+        public static Message Server(string messageBody)
+        {
+            return new Message(MessageHeader.Server, messageBody);
+        }
+
         public static Message Parse(string messageString)
         {
             string[] messageParts = messageString.Split('\n');
@@ -74,10 +79,13 @@ namespace MessageHandler
 
             foreach (string arg in messageArgs)
             {
-                string argName = arg.Substring(0, arg.IndexOf('='));
-                string argValue = arg.Substring(arg.IndexOf('=') + 1);
+                if(arg.IndexOf('=') != -1)
+                {
+                    string argName = arg.Substring(0, arg.IndexOf('='));
+                    string argValue = arg.Substring(arg.IndexOf('=') + 1);
 
-                message.AddArgument(argName, argValue);
+                    message.AddArgument(argName, argValue);
+                }
             }
 
             return message;

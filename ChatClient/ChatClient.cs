@@ -23,6 +23,8 @@ namespace ChatClient
 
         public void Connect(IPEndPoint endPoint)
         {
+            _client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
             _client.Connect(endPoint);
             _isConnected = true;
         }

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Net.Sockets;
 using MessageHandler;
 using System.Collections;
+using System.Runtime.Remoting.Messaging;
 
 namespace ChatClient
 {
@@ -20,7 +21,8 @@ namespace ChatClient
 
         static ChatClient client;
 
-        static Queue<Message> messagesToSend;
+        static List<Message> messagesToSend;
+        static string username;
 
         static void Main(string[] args)
         {
@@ -34,7 +36,8 @@ namespace ChatClient
             inputHandler.InputProcessor += ProcessInput;
             logger.LogHistoryChanged += view.UpdateView;
 
-            messagesToSend = new Queue<Message>();
+            messagesToSend = new List<Message>();
+            username = "";
 
             client = new ChatClient();
 
@@ -42,26 +45,43 @@ namespace ChatClient
 
             Command connectCmd = new Command("connect", cmdArgs =>
             {
+                if (client.IsConnected)
+                {
+                    logger.LogWarning("Already connected!");
+                    return;
+                }
+
                 logger.LogInfo("Connecting to server...");
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, 11000);
 
-                try
+                if(cmdArgs.Count == 1)
                 {
-                    client.Connect(endPoint);
-                }
-                catch (SocketException e)
-                {
-                    logger.LogWarning("Unable to connect to a server!");
-                    logger.LogError(e.Message);
-                }
+                    username = cmdArgs[0];
 
-                if (client.IsConnected)
-                {
-                    logger.LogSuccess("Succesfully connected to a server!");
+                    try
+                    {
+                        client.Connect(endPoint);
+                    }
+                    catch (SocketException e)
+                    {
+                        logger.LogWarning("Unable to connect to a server!");
+                        logger.LogError(e.Message);
+                    }
 
-                    Thread connectionThread = new Thread(HandleConnectionThread);
-                    connectionThread.Start();
+                    if (client.IsConnected)
+                    {
+                        Thread connectionThread = new Thread(HandleConnectionThread);
+                        connectionThread.Start();
+                    }
                 }
+                else
+                {
+                    logger.LogWarning("Incorrect use of command 'connect'");
+                }
+            });
+            Command disconnectCmd = new Command("disconnect", cmdArgs =>
+            {
+                client.RequestDisconnect();
             });
             Command quitCmd = new Command("quit", cmdArgs =>
             {
@@ -69,9 +89,19 @@ namespace ChatClient
                     client.RequestDisconnect();
                 isRunning = false;
             });
+            Command userlistCmd = new Command("userlist", cmdArgs =>
+            {
+                Message userListRequest = Message.Request("");
+                userListRequest.AddArgument("request", "userlist");
+
+                messagesToSend.Add(userListRequest);
+            });
 
 
+            commandManager.AddCommand(connectCmd);
+            commandManager.AddCommand(disconnectCmd);
             commandManager.AddCommand(quitCmd);
+            commandManager.AddCommand(userlistCmd);
 
             while (isRunning)
             {
@@ -83,11 +113,14 @@ namespace ChatClient
         static void ProcessInput(string input)
         {
             if (input.StartsWith("/"))
+            {
                 ProcessCommand(input.Substring(1));
-            else if (client.IsConnected)
-                if (!string.IsNullOrEmpty(input)) client.SendChatMessage(input);
-                else
-                    logger.LogMessage(input);
+            }
+            else if(!string.IsNullOrEmpty(input))
+            {
+                if (client.IsConnected) messagesToSend.Add(Message.PublicMessage(input));
+                logger.LogMessage(input);
+            }
         }
 
         static void ProcessCommand(string commandString)
@@ -108,64 +141,99 @@ namespace ChatClient
         {
             while (client.IsConnected)
             {
-                Queue<Message> messages = client.GetPendingMessages();
+                Queue<Message> messages = GetPendingMessages();
                 HandleReceivedMessages(messages);
-                SendMessages();
+                HandleSendingMessages();
+            }
+        }
+
+        static Queue<Message> GetPendingMessages()
+        {
+            try
+            {
+                return client.GetPendingMessages();
+            }
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
+            {
+                return new Queue<Message>();
             }
         }
 
         static void HandleReceivedMessages(Queue<Message> messages)
         {
-            var groupedMessages = messages.GroupBy(msg => msg.messageHeader);
+            if (!client.IsConnected) return;
 
-            foreach(Message msg in groupedMessages.Where(group => group.Key == MessageHeader.Connection_Status))
+            HandleConnectionStatusMessages(messages.Where(msg => msg.messageHeader == MessageHeader.Connection_Status));
+
+            HandleRequests(messages.Where(msg => msg.messageHeader == MessageHeader.Request));
+
+            HandleResponses(messages.Where(msg => msg.messageHeader == MessageHeader.Response));
+
+            HandleChatMessages(messages.Where(msg => msg.messageHeader == MessageHeader.Public_Message || msg.messageHeader == MessageHeader.Private_Message));
+        }
+
+        static void HandleConnectionStatusMessages(IEnumerable<Message> messages)
+        {
+            foreach (Message msg in messages)
             {
-                if(msg.HasArgument("status"))
+                if (msg.HasArgument("status"))
                 {
-                    if(msg.GetArgumentValue("status").Equals("disconnected", StringComparison.OrdinalIgnoreCase))
-                    {
-                        logger.LogInfo(msg.messageBody);
-                        client.Disconnect();
-                        return;
-                    }
-                    else if (msg.GetArgumentValue("status").Equals("connected", StringComparison.OrdinalIgnoreCase))
+                    string status = msg.GetArgumentValue("status");
+
+                    if (status.Equals("connected", StringComparison.OrdinalIgnoreCase))
                     {
                         logger.LogSuccess(msg.messageBody);
                     }
+                    else if (status.Equals("rejected", StringComparison.OrdinalIgnoreCase))
+                    {
+                        client.Disconnect();
+                        logger.LogWarning(msg.messageBody);
+                    }
+                    else if (status.Equals("disconnected", StringComparison.OrdinalIgnoreCase))
+                    {
+                        client.Disconnect();
+                        logger.LogInfo(msg.messageBody);
+                    }
                 }
             }
+        }
 
-            foreach (Message msg in groupedMessages.Where(group => group.Key == MessageHeader.Request))
+        static void HandleRequests(IEnumerable<Message> messages)
+        {
+            foreach (Message msg in messages)
             {
                 if (msg.HasArgument("request"))
                 {
                     if (msg.GetArgumentValue("request").Equals("LoginInfo", StringComparison.OrdinalIgnoreCase))
                     {
-                        Message response = Message.Response("Providing login info");
-                        response.AddArgument("username", "Guest");
+                        Message response = Message.Response("Providing login info!");
+                        response.AddArgument("username", username);
+
+                        messagesToSend.Add(response);
                     }
                 }
             }
+        }
 
-            foreach (Message msg in groupedMessages.Where(group => group.Key == MessageHeader.Response))
+        static void HandleResponses(IEnumerable<Message> messages)
+        {
+            foreach (Message msg in messages)
             {
-
-            }
-
-            foreach (Message msg in groupedMessages.Where(group => group.Key == MessageHeader.Public_Message || group.Key == MessageHeader.Private_Message))
-            {
-                if(msg.messageHeader == MessageHeader.Private_Message)
+                if (msg.HasArgument("requested"))
                 {
-                    if (msg.HasArgument("sender"))
+                    if (msg.GetArgumentValue("requested").Equals("UserList", StringComparison.OrdinalIgnoreCase))
                     {
-                        logger.LogInfo($"Private: <{msg.GetArgumentValue("sender")}> {msg.messageBody}");
-                    }
-                    else
-                    {
-                        logger.LogInfo($"Private: ?ANONYMOUS? {msg.messageBody}");
+                        logger.LogInfo(msg.messageBody);
                     }
                 }
-                else
+            }
+        }
+
+        static void HandleChatMessages(IEnumerable<Message> messages)
+        {
+            foreach (Message msg in messages)
+            {
+                if (msg.messageHeader == MessageHeader.Public_Message)
                 {
                     if (msg.HasArgument("sender"))
                     {
@@ -176,14 +244,45 @@ namespace ChatClient
                         logger.LogMessage($"?ANONYMOUS? {msg.messageBody}");
                     }
                 }
+                else if(msg.messageHeader == MessageHeader.Private_Message)
+                {
+                    if (msg.HasArgument("sender"))
+                    {
+                        logger.LogInfo($"Private: <{msg.GetArgumentValue("sender")}> {msg.messageBody}");
+                    }
+                    else
+                    {
+                        logger.LogInfo($"Private: ?ANONYMOUS? {msg.messageBody}");
+                    }
+                }
             }
         }
 
-        static void SendMessages()
+        static void HandleSendingMessages()
         {
-            while(messagesToSend.Count > 0)
+            if (!client.IsConnected) return;
+
+            try
             {
-                client.SendMessage(messagesToSend.Dequeue());
+                SendMessages(messagesToSend.Where(msg => msg.messageHeader == MessageHeader.Response));
+                SendMessages(messagesToSend.Where(msg => msg.messageHeader == MessageHeader.Request));
+                SendMessages(messagesToSend.Where(msg => msg.messageHeader == MessageHeader.Public_Message || msg.messageHeader == MessageHeader.Private_Message));
+            }
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
+            {
+                
+            }
+            finally
+            {
+                messagesToSend.Clear();
+            }
+        }
+
+        static void SendMessages(IEnumerable<Message> messages)
+        {
+            foreach (Message message in messages)
+            {
+                client.SendMessage(message);
             }
         }
     }
