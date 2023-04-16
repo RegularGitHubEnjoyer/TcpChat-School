@@ -271,9 +271,11 @@ namespace ChatServer
                         HandleRequest(pendingMessage);
                         break;
                     case MessageHeader.Public_Message:
+                        logger.LogMessage($"<{pendingMessage.GetArgumentValue("sender")}> {pendingMessage.messageBody}");
                         server.BroadcastMessage(pendingMessage);
                         break;
                     case MessageHeader.Private_Message:
+                        logger.LogInfo($"PRIVATE: <{pendingMessage.GetArgumentValue("sender")}> -> <{pendingMessage.GetArgumentValue("receiver")}> {pendingMessage.messageBody}");
                         server.SendMessage(pendingMessage);
                         break;
                 }

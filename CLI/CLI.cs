@@ -12,6 +12,7 @@ namespace CLI
     public class CLI
     {
         CLIPresenter _presenter;
+        readonly object updateViewLock = new object();
 
         public CLI(CLIPresenter presenter)
         {
@@ -20,8 +21,11 @@ namespace CLI
 
         public void UpdateView()
         {
-            _resetConsoleBuffer();
-            _displayView();
+            lock (updateViewLock)
+            {
+                _resetConsoleBuffer();
+                _displayView();
+            }
         }
 
         private void _resetConsoleBuffer()

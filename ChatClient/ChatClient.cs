@@ -73,6 +73,18 @@ namespace ChatClient
             MessagingHandler.SendMessage(message, _client);
         }
 
+        public bool LostConnectionWithServer()
+        {
+            try
+            {
+                return _client.Poll(100, SelectMode.SelectRead) && _client.Available == 0;
+            }
+            catch (Exception e) when (e is ObjectDisposedException || e is NullReferenceException)
+            {
+                return false;
+            }
+        }
+
         private bool _hasPendingMessage()
         {
             return _isConnected && _client.Poll(100, SelectMode.SelectRead) && _client.Available > 0;

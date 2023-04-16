@@ -51,11 +51,11 @@ namespace ChatClient
                     return;
                 }
 
-                logger.LogInfo("Connecting to server...");
-                IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, 11000);
-
                 if(cmdArgs.Count == 1)
                 {
+                    logger.LogInfo("Connecting to server...");
+                    IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, 11000);
+
                     username = cmdArgs[0];
 
                     try
@@ -96,12 +96,27 @@ namespace ChatClient
 
                 messagesToSend.Add(userListRequest);
             });
+            Command pmCmd = new Command("pm", cmdArgs =>
+            {
+                if(cmdArgs.Count > 1)
+                {
+                    Message pm = Message.PrivateMessage(String.Join(" ", cmdArgs.Skip(1)));
+                    pm.AddArgument("receiver", cmdArgs[0]);
+
+                    messagesToSend.Add(pm);
+                }
+                else
+                {
+                    logger.LogWarning("Invalid use of 'pm' command!");
+                }
+            });
 
 
             commandManager.AddCommand(connectCmd);
             commandManager.AddCommand(disconnectCmd);
             commandManager.AddCommand(quitCmd);
             commandManager.AddCommand(userlistCmd);
+            commandManager.AddCommand(pmCmd);
 
             while (isRunning)
             {
@@ -144,6 +159,11 @@ namespace ChatClient
                 Queue<Message> messages = GetPendingMessages();
                 HandleReceivedMessages(messages);
                 HandleSendingMessages();
+                if (client.LostConnectionWithServer())
+                {
+                    logger.LogInfo("Lost connection with server");
+                    client.Disconnect();
+                }
             }
         }
 
@@ -172,6 +192,8 @@ namespace ChatClient
             HandleRequests(messages.Where(msg => msg.messageHeader == MessageHeader.Request));
 
             HandleResponses(messages.Where(msg => msg.messageHeader == MessageHeader.Response));
+
+            HandleServerMessages(messages.Where(msg => msg.messageHeader == MessageHeader.Server));
 
             HandleChatMessages(messages.Where(msg => msg.messageHeader == MessageHeader.Public_Message || msg.messageHeader == MessageHeader.Private_Message));
         }
@@ -230,6 +252,14 @@ namespace ChatClient
                         logger.LogInfo(msg.messageBody);
                     }
                 }
+            }
+        }
+
+        static void HandleServerMessages(IEnumerable<Message> messages)
+        {
+            foreach (Message msg in messages)
+            {
+                logger.LogInfo($"SERVER: {msg.messageBody}");
             }
         }
 
