@@ -11,15 +11,15 @@ namespace InputHandler
         private string _inputString;
         private int _inputStringCursor;
 
-        private Queue<string> _previousInputEntries;
-        private Queue<string> _redoInputEntries;
+        private Stack<string> _previousInputEntries;
+        private Stack<string> _redoInputEntries;
 
         public event Action<string> InputProcessor;
 
         public InputHandler()
         {
-            _previousInputEntries = new Queue<string>();
-            _redoInputEntries = new Queue<string>();
+            _previousInputEntries = new Stack<string>();
+            _redoInputEntries = new Stack<string>();
 
             _setInputString("");
         }
@@ -27,6 +27,11 @@ namespace InputHandler
         public string GetCurrentInputString()
         {
             return _inputString;
+        }
+
+        public int GetCursorOffset()
+        {
+            return _inputStringCursor;
         }
 
         public void RegisterKeyPress()
@@ -37,7 +42,8 @@ namespace InputHandler
             {
                 case ConsoleKey.Enter:
                     string input = _inputString;
-                    _previousInputEntries.Enqueue(_inputString);
+                    _updateInputEntryHistory();
+                    _previousInputEntries.Push(_inputString);
                     _setInputString("");
                     InputProcessor?.Invoke(input);
                     _setInputStringCursor(0);
@@ -73,6 +79,14 @@ namespace InputHandler
             }
         }
 
+        private void _updateInputEntryHistory()
+        {
+            while(_redoInputEntries.Count > 0)
+            {
+                _previousInputEntries.Push(_redoInputEntries.Pop());
+            }
+        }
+
         private void _setInputString(string value)
         {
             _inputString = value;
@@ -95,15 +109,15 @@ namespace InputHandler
         {
             if(_previousInputEntries.Count > 0)
             {
-                _redoInputEntries.Enqueue(_inputString);
-                _setInputString(_previousInputEntries.Dequeue());
+                if (!string.IsNullOrEmpty(_inputString)) _redoInputEntries.Push(_inputString);
+                _setInputString(_previousInputEntries.Pop());
             }            
         }
 
         private void _setInputStringToNextInHistoryOrEmpty()
         {
-            _previousInputEntries.Enqueue(_inputString);
-            if (_redoInputEntries.Count > 0) _setInputString(_redoInputEntries.Dequeue());
+            if(!string.IsNullOrEmpty(_inputString)) _previousInputEntries.Push(_inputString);
+            if (_redoInputEntries.Count > 0) _setInputString(_redoInputEntries.Pop());
             else _setInputString("");
         }
 
