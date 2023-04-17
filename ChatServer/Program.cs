@@ -72,6 +72,8 @@ namespace ChatServer
                     clientConnectionThread.Start();
                 }
             });
+            startCmd.SetCommandDescription("Starts the server if it's not already started.");
+
             Command stopCmd = new Command("stop", cmdArgs =>
             {
                 logger.LogInfo("Stopping server...");
@@ -83,17 +85,55 @@ namespace ChatServer
                 server.Stop();
                 logger.LogSuccess("Server stopped succesfully!");
             });
+            stopCmd.SetCommandDescription("Shuts down the server if it's running.");
+
             Command quitCmd = new Command("quit", cmdArgs =>
             {
                 server.Stop();
                 isRunning = false;
             });
+            quitCmd.SetCommandDescription("Shuts down the server if it's running and closes the app.");
+
+            Command helpCmd = new Command("help", cmdArgs =>
+            {
+                if (cmdArgs.Count == 0)
+                {
+                    List<(string cmd, string description)> availableCommands = commandManager.GetAvaliableCommandsWithDescription();
+                    int longestCommandName = availableCommands.Max(cmd => cmd.cmd.Length);
+                    int numberingPadding = (availableCommands.Count.ToString()).Length;
+
+                    logger.LogMessage("Available commands:");
+                    for (int i = 0; i < availableCommands.Count; i++)
+                    {
+                        logger.LogMessage($"{(i + 1).ToString().PadRight(numberingPadding)} {availableCommands[i].cmd.PadRight(longestCommandName, ' ')}\t{availableCommands[i].description}");
+                    }
+                }
+                else if (cmdArgs.Count == 1)
+                {
+                    if (commandManager.CommandAvailable(cmdArgs[0]))
+                    {
+                        logger.LogInfo($"Help page for '{cmdArgs[0]}':");
+                    }
+                    else
+                    {
+                        logger.LogWarning($"Unknown command '{cmdArgs[0]}'");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning($"'help' takes max 1 argument, provided: {cmdArgs.Count}");
+                }
+            });
+            helpCmd.SetCommandDescription("display list of available commands and help pages.");
 
             commandManager.AddCommand(startCmd);
             commandManager.AddCommand(stopCmd);
             commandManager.AddCommand(quitCmd);
+            commandManager.AddCommand(helpCmd);
 
             commandManager.ExecuteCommand("start");
+            logger.LogInfo("Type '/help' to display list of available commands.");
+            logger.LogInfo("Type '/help [command]' to display help page for specified command.");
 
             while (isRunning)
             {
@@ -275,10 +315,33 @@ namespace ChatServer
                         server.BroadcastMessage(pendingMessage);
                         break;
                     case MessageHeader.Private_Message:
-                        logger.LogInfo($"PRIVATE: <{pendingMessage.GetArgumentValue("sender")}> -> <{pendingMessage.GetArgumentValue("receiver")}> {pendingMessage.messageBody}");
-                        server.SendMessage(pendingMessage);
+                        ValidateAndSendPrivateMessage(pendingMessage);
                         break;
                 }
+            }
+        }
+
+        static void ValidateAndSendPrivateMessage(Message pendingMessage)
+        {
+            if (pendingMessage.HasArgument("receiver"))
+            {
+                if (server.IsClientConnectedWithUsername(pendingMessage.GetArgumentValue("receiver")))
+                {
+                    logger.LogInfo($"PRIVATE: <{pendingMessage.GetArgumentValue("sender")}> -> <{pendingMessage.GetArgumentValue("receiver")}> {pendingMessage.messageBody}");
+                    server.SendMessage(pendingMessage);
+                }
+                else
+                {
+                    Message invalidReceiver = Message.Server($"There is no user '{pendingMessage.GetArgumentValue("receiver")}'");
+                    invalidReceiver.AddArgument("receiver", pendingMessage.GetArgumentValue("sender"));
+                    server.SendMessage(invalidReceiver);
+                }
+            }
+            else
+            {
+                Message invalidMessageFormat = Message.Server($"You have to specify receiver to send private message.");
+                invalidMessageFormat.AddArgument("receiver", pendingMessage.GetArgumentValue("sender"));
+                server.SendMessage(invalidMessageFormat);
             }
         }
 
@@ -309,7 +372,7 @@ namespace ChatServer
                 {
                     string username = request.GetArgumentValue("sender");
 
-                    Message userList = Message.Response(String.Join("\n", server.GetClientsUsernames()));
+                    Message userList = Message.Response(string.Join(",", server.GetClientsUsernames()));
                     userList.AddArgument("requested", "UserList");
                     userList.AddArgument("receiver", username);
 

@@ -32,11 +32,6 @@ namespace CommandManager
             _help = help;
         }
 
-        public string GetNameWithDescription()
-        {
-            return $"{GetName()}\t{GetDescription()}";
-        }
-
         public string GetName()
         {
             return _name;

@@ -79,37 +79,92 @@ namespace ChatClient
                     logger.LogWarning("Incorrect use of command 'connect'");
                 }
             });
+            connectCmd.SetCommandDescription("Connects to the server if it's not already connected.");
+
             Command disconnectCmd = new Command("disconnect", cmdArgs =>
             {
                 client.RequestDisconnect();
             });
+            disconnectCmd.SetCommandDescription("Requests disconnect from the server if it's connected.");
+
             Command quitCmd = new Command("quit", cmdArgs =>
             {
                 if (client.IsConnected)
                     client.RequestDisconnect();
                 isRunning = false;
             });
+            quitCmd.SetCommandDescription("Requests disconnect from the server if it's connected and closes app.");
+
             Command userlistCmd = new Command("userlist", cmdArgs =>
             {
-                Message userListRequest = Message.Request("");
-                userListRequest.AddArgument("request", "userlist");
-
-                messagesToSend.Add(userListRequest);
-            });
-            Command pmCmd = new Command("pm", cmdArgs =>
-            {
-                if(cmdArgs.Count > 1)
+                if (client.IsConnected)
                 {
-                    Message pm = Message.PrivateMessage(String.Join(" ", cmdArgs.Skip(1)));
-                    pm.AddArgument("receiver", cmdArgs[0]);
+                    Message userListRequest = Message.Request("");
+                    userListRequest.AddArgument("request", "userlist");
 
-                    messagesToSend.Add(pm);
+                    messagesToSend.Add(userListRequest);
                 }
                 else
                 {
-                    logger.LogWarning("Invalid use of 'pm' command!");
+                    logger.LogWarning("You have to be connected to request user list!");
                 }
             });
+            userlistCmd.SetCommandDescription("Requests list of connected users and displays them.");
+
+            Command pmCmd = new Command("pm", cmdArgs =>
+            {
+                if (client.IsConnected)
+                {
+                    if (cmdArgs.Count > 1)
+                    {
+                        Message pm = Message.PrivateMessage(String.Join(" ", cmdArgs.Skip(1)));
+                        pm.AddArgument("receiver", cmdArgs[0]);
+
+                        messagesToSend.Add(pm);
+                    }
+                    else
+                    {
+                        logger.LogWarning("Invalid use of 'pm' command!");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("You have to be connected to send private messages!");
+                }
+            });
+            pmCmd.SetCommandDescription("Sends private message to specified user.");
+
+            Command helpCmd = new Command("help", cmdArgs =>
+            {
+                if (cmdArgs.Count == 0)
+                {
+                    List<(string cmd, string description)> availableCommands = commandManager.GetAvaliableCommandsWithDescription();
+                    int longestCommandName = availableCommands.Max(cmd => cmd.cmd.Length);
+                    int numberingPadding = (availableCommands.Count.ToString()).Length;
+
+                    logger.LogMessage("Available commands:");
+                    for (int i = 0; i < availableCommands.Count; i++)
+                    {
+                        logger.LogMessage($"{(i + 1).ToString().PadRight(numberingPadding)} {availableCommands[i].cmd.PadRight(longestCommandName, ' ')}\t{availableCommands[i].description}");
+                    }
+                }
+                else if (cmdArgs.Count == 1)
+                {
+                    if (commandManager.CommandAvailable(cmdArgs[0]))
+                    {
+                        logger.LogInfo($"Help page for '{cmdArgs[0]}':");
+                    }
+                    else
+                    {
+                        logger.LogWarning($"Unknown command '{cmdArgs[0]}'");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning($"'help' takes max 1 argument, provided: {cmdArgs.Count}");
+                }
+            });
+            helpCmd.SetCommandDescription("display list of available commands and help pages.");
 
 
             commandManager.AddCommand(connectCmd);
@@ -117,6 +172,10 @@ namespace ChatClient
             commandManager.AddCommand(quitCmd);
             commandManager.AddCommand(userlistCmd);
             commandManager.AddCommand(pmCmd);
+            commandManager.AddCommand(helpCmd);
+
+            logger.LogInfo("Type '/help' to display list of available commands.");
+            logger.LogInfo("Type '/help [command]' to display help page for specified command.");
 
             while (isRunning)
             {
@@ -249,7 +308,14 @@ namespace ChatClient
                 {
                     if (msg.GetArgumentValue("requested").Equals("UserList", StringComparison.OrdinalIgnoreCase))
                     {
-                        logger.LogInfo(msg.messageBody);
+                        string[] usernames = msg.messageBody.Split(',');
+                        int numberingPadding = (usernames.Length.ToString()).Length;
+
+                        logger.LogMessage("Connected users:");
+                        for (int i = 0; i < usernames.Length; i++)
+                        {
+                            logger.LogMessage($"{(i + 1).ToString().PadRight(numberingPadding)} {usernames[i]}");
+                        }
                     }
                 }
             }

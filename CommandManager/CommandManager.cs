@@ -47,12 +47,12 @@ namespace CommandManager
             return _commands.Keys.ToList();
         }
 
-        public List<string> GetAvaliableCommandsWithDescription()
+        public List<(string cmd, string description)> GetAvaliableCommandsWithDescription()
         {
-            List<string> commandsWithDescription = new List<string>();
+            List<(string cmd, string description)> commandsWithDescription = new List<(string cmd, string description)>();
             foreach (Command command in _commands.Values)
             {
-                commandsWithDescription.Add(command.GetNameWithDescription());
+                commandsWithDescription.Add((command.GetName(), command.GetDescription()));
             }
             return commandsWithDescription;
         }
