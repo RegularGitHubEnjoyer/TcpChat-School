@@ -11,11 +11,13 @@ namespace CLI
     {
         Logger.Logger _logger;
         InputHandler.InputHandler _inputHandler;
+        string _prefix;
 
         public CLIPresenterImp(Logger.Logger logger, InputHandler.InputHandler inputHandler)
         {
             _logger = logger;
             _inputHandler = inputHandler;
+            _prefix = ">";
         }
 
         public List<CLIViewItem> GetViewData()
@@ -39,10 +41,20 @@ namespace CLI
                 view.Add(viewItem);
             }
 
-            CLIViewItem userInput = new CLIViewItem(ConsoleColor.White, ConsoleColor.Black, $"> {_inputHandler.GetCurrentInputString()}");
+            CLIViewItem userInput = new CLIViewItem(ConsoleColor.White, ConsoleColor.Black, $"{_prefix} {_inputHandler.GetCurrentInputString()}");
             view.Add(userInput);
 
             return view;
+        }
+
+        public (int left, int top) GetCursorOffset()
+        {
+            return (_prefix.Length + 1 + _inputHandler.GetCursorOffset(), Console.BufferHeight - 1);
+        }
+
+        public void SetPrefix(string prefix)
+        {
+            _prefix = prefix;
         }
 
         private ConsoleColor _getColorAccordingToLogType(LogType logType)

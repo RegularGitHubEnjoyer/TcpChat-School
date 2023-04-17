@@ -25,6 +25,7 @@ namespace CLI
             {
                 _resetConsoleBuffer();
                 _displayView();
+                _setCursorPos();
             }
         }
 
@@ -41,6 +42,13 @@ namespace CLI
             {
                 textLine.Display();
             }
+        }
+
+        private void _setCursorPos()
+        {
+            (int left, int top) = _presenter.GetCursorOffset();
+
+            Console.SetCursorPosition(left, top);
         }
     }
 }

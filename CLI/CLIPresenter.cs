@@ -9,5 +9,6 @@ namespace CLI
     public interface CLIPresenter
     {
         List<CLIViewItem> GetViewData();
+        (int left, int top) GetCursorOffset();
     }
 }
