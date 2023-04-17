@@ -103,7 +103,7 @@ namespace ChatServer
         {
             foreach (string username in _connectedClients.Keys.ToArray())
             {
-                if (message.HasArgument("sender") && message.GetArgumentValue("sender") == username) continue;
+                if ((message.HasArgument("sender") && message.GetArgumentValue("sender") == username) || !_connectedClients[username].IsConnected) continue;
 
                 MessagingHandler.SendMessage(message, _connectedClients[username].ClientSocket);
             }
