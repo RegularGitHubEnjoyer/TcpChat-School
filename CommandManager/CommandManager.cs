@@ -56,5 +56,10 @@ namespace CommandManager
             }
             return commandsWithDescription;
         }
+
+        public string GetCommandHelp(string command)
+        {
+            return _commands[command].GetHelpPage();
+        }
     }
 }
