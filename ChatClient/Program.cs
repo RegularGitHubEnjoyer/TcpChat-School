@@ -80,12 +80,14 @@ namespace ChatClient
                 }
             });
             connectCmd.SetCommandDescription("Connects to the server if it's not already connected.");
+            connectCmd.SetCommandHelp("Connects to the server if it's not already connected.\n/connect [username]\t/connect myUsername");
 
             Command disconnectCmd = new Command("disconnect", cmdArgs =>
             {
                 client.RequestDisconnect();
             });
             disconnectCmd.SetCommandDescription("Requests disconnect from the server if it's connected.");
+            disconnectCmd.SetCommandHelp("Requests disconnect from the server if it's connected.");
 
             Command quitCmd = new Command("quit", cmdArgs =>
             {
@@ -94,6 +96,7 @@ namespace ChatClient
                 isRunning = false;
             });
             quitCmd.SetCommandDescription("Requests disconnect from the server if it's connected and closes app.");
+            quitCmd.SetCommandHelp("Requests disconnect from the server if it's connected and closes app.");
 
             Command userlistCmd = new Command("userlist", cmdArgs =>
             {
@@ -110,6 +113,7 @@ namespace ChatClient
                 }
             });
             userlistCmd.SetCommandDescription("Requests list of connected users and displays them.");
+            userlistCmd.SetCommandHelp("Requests list of connected users and displays them.");
 
             Command pmCmd = new Command("pm", cmdArgs =>
             {
@@ -133,6 +137,7 @@ namespace ChatClient
                 }
             });
             pmCmd.SetCommandDescription("Sends private message to specified user.");
+            pmCmd.SetCommandHelp("Sends private message to specified user.\n/pm [username] [message]\t/pm user1 example of private message.");
 
             Command helpCmd = new Command("help", cmdArgs =>
             {
@@ -153,6 +158,8 @@ namespace ChatClient
                     if (commandManager.CommandAvailable(cmdArgs[0]))
                     {
                         logger.LogInfo($"Help page for '{cmdArgs[0]}':");
+                        foreach(string line in commandManager.GetCommandHelp(cmdArgs[0]).Split('\n'))
+                            logger.LogMessage(line);
                     }
                     else
                     {
@@ -165,6 +172,7 @@ namespace ChatClient
                 }
             });
             helpCmd.SetCommandDescription("display list of available commands and help pages.");
+            helpCmd.SetCommandHelp("/help\tdisplay list of available commands.\n/help [command]\tdisplay [command] help page");
 
 
             commandManager.AddCommand(connectCmd);

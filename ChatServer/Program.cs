@@ -73,6 +73,7 @@ namespace ChatServer
                 }
             });
             startCmd.SetCommandDescription("Starts the server if it's not already started.");
+            startCmd.SetCommandHelp("Starts the server if it's not already started.");
 
             Command stopCmd = new Command("stop", cmdArgs =>
             {
@@ -86,6 +87,7 @@ namespace ChatServer
                 logger.LogSuccess("Server stopped succesfully!");
             });
             stopCmd.SetCommandDescription("Shuts down the server if it's running.");
+            stopCmd.SetCommandHelp("Shuts down the server if it's running.");
 
             Command quitCmd = new Command("quit", cmdArgs =>
             {
@@ -93,6 +95,7 @@ namespace ChatServer
                 isRunning = false;
             });
             quitCmd.SetCommandDescription("Shuts down the server if it's running and closes the app.");
+            quitCmd.SetCommandHelp("Shuts down the server if it's running and closes the app.");
 
             Command helpCmd = new Command("help", cmdArgs =>
             {
@@ -113,6 +116,8 @@ namespace ChatServer
                     if (commandManager.CommandAvailable(cmdArgs[0]))
                     {
                         logger.LogInfo($"Help page for '{cmdArgs[0]}':");
+                        foreach (string line in commandManager.GetCommandHelp(cmdArgs[0]).Split('\n'))
+                            logger.LogMessage(line);
                     }
                     else
                     {
@@ -125,6 +130,7 @@ namespace ChatServer
                 }
             });
             helpCmd.SetCommandDescription("display list of available commands and help pages.");
+            helpCmd.SetCommandHelp("/help\tdisplay list of available commands.\n/help [command]\tdisplay [command] help page");
 
             commandManager.AddCommand(startCmd);
             commandManager.AddCommand(stopCmd);

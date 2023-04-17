@@ -9,7 +9,7 @@ using MessageHandler;
 
 namespace ChatClient
 {
-    internal class ChatClient
+    public class ChatClient
     {
         private Socket _client;
         private bool _isConnected;
