@@ -1,6 +1,4 @@
-﻿using CommandManager;
-using CLI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -8,26 +6,30 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Sockets;
-using MessageHandler;
+using Utility.CommandInterface;
+using Utility.Commands;
+using Utility.Input;
+using Utility.Logging;
+using Utility.Messaging;
 
 namespace ChatServer
 {
     internal class Program
     {
-        static Logger.Logger logger;
-        static CommandManager.CommandManager commandManager;
+        static Logger logger;
+        static CommandManager commandManager;
 
         static ChatServer server;
 
         static Queue<Socket> validationQueue;
         static void Main(string[] args)
         {
-            logger = new Logger.Logger();
-            InputHandler.InputHandler inputHandler = new InputHandler.InputHandler();
-            commandManager = new CommandManager.CommandManager();
+            logger = new Logger();
+            InputHandler inputHandler = new InputHandler();
+            commandManager = new CommandManager();
 
             CLIPresenter presenter = new CLIPresenterImp(logger, inputHandler);
-            CLI.CLI view = new CLI.CLI(presenter);
+            CLI view = new CLI(presenter);
 
             inputHandler.InputProcessor += ProcessInput;
             logger.LogHistoryChanged += view.UpdateView;
