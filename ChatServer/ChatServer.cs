@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
-using MessageHandler;
+using Utility.Messaging;
 
 namespace ChatServer
 {
